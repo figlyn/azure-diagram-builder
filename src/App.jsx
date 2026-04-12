@@ -351,6 +351,30 @@ Architecture: ${input.trim()}`;
 
   const handleExport=()=>{const svg=mainRef.current?.querySelector("svg");if(!svg)return;const c=svg.cloneNode(true);c.setAttribute("xmlns","http://www.w3.org/2000/svg");const b=new Blob([new XMLSerializer().serializeToString(c)],{type:"image/svg+xml"});const u=URL.createObjectURL(b);const a=document.createElement("a");a.href=u;a.download=`azure-${Date.now()}.svg`;a.click();URL.revokeObjectURL(u);};
 
+  const handleExportPng=()=>{
+    const svg=mainRef.current?.querySelector("svg");if(!svg)return;
+    let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+    nodes.forEach(n=>{minX=Math.min(minX,n.x-40);minY=Math.min(minY,n.y-40);maxX=Math.max(maxX,n.x+40);maxY=Math.max(maxY,n.y+60);});
+    groups.forEach(g=>{minX=Math.min(minX,g.x);minY=Math.min(minY,g.y);maxX=Math.max(maxX,g.x+g.w);maxY=Math.max(maxY,g.y+g.h);});
+    if(minX===Infinity)return;
+    const PAD=20,TITLE_H=40,SCALE=2;
+    const W=Math.round(maxX-minX+PAD*2),H=Math.round(maxY-minY+PAD*2+TITLE_H);
+    const clone=svg.cloneNode(true);
+    clone.setAttribute("xmlns","http://www.w3.org/2000/svg");
+    clone.setAttribute("width",W);clone.setAttribute("height",H);
+    clone.setAttribute("viewBox",`0 0 ${W} ${H}`);
+    const contentG=clone.querySelector("g[transform]");
+    if(contentG)contentG.setAttribute("transform",`translate(${PAD-minX},${PAD+TITLE_H-minY})`);
+    const blob=new Blob([new XMLSerializer().serializeToString(clone)],{type:"image/svg+xml"});
+    const url=URL.createObjectURL(blob);
+    const canvas=document.createElement("canvas");
+    canvas.width=W*SCALE;canvas.height=H*SCALE;
+    const ctx=canvas.getContext("2d");
+    const img=new Image();
+    img.onload=()=>{ctx.scale(SCALE,SCALE);ctx.drawImage(img,0,0,W,H);URL.revokeObjectURL(url);const a=document.createElement("a");const fname=(title||"azure-diagram").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"");a.download=`${fname}.png`;a.href=canvas.toDataURL("image/png");a.click();};
+    img.src=url;
+  };
+
   const toSvg=useCallback((cx,cy)=>{if(!svgRef.current)return{x:0,y:0};const r=svgRef.current.getBoundingClientRect();return{x:(cx-r.left-pan.x)/zoom,y:(cy-r.top-pan.y)/zoom};},[pan,zoom]);
   const px=e=>e.clientX??e.touches?.[0]?.clientX??0;const py=e=>e.clientY??e.touches?.[0]?.clientY??0;
   const onNodeDown=(e,id)=>{if(!editMode)return;e.stopPropagation();if(connectFrom){if(connectFrom!==id)setEdges(p=>[...p,{id:`e${Date.now()}`,from:connectFrom,to:id,label:edgeLbl,style:edgeStyle}]);setEdgeLbl("");setConnectFrom(null);return;}const pt=toSvg(px(e),py(e));const nd=nodes.find(n=>n.id===id);setDrag({kind:"node",id,ox:pt.x-nd.x,oy:pt.y-nd.y});setSel({kind:"node",id});};
@@ -404,6 +428,7 @@ Architecture: ${input.trim()}`;
           {hasData&&<button onClick={reLayout} style={{padding:"5px 10px",background:"transparent",border:`1px solid ${T.bdr}`,borderRadius:5,color:T.ts,fontSize:10,cursor:"pointer"}}>⟲ Layout</button>}
           {hasData&&<button onClick={()=>zoomToFit(nodes,groups)} style={{padding:"5px 10px",background:"transparent",border:`1px solid ${T.bdr}`,borderRadius:5,color:T.ts,fontSize:10,cursor:"pointer"}}>⊙ Fit</button>}
           {hasData&&<button onClick={handleExport} style={{padding:"5px 10px",background:"transparent",border:`1px solid ${T.bdr}`,borderRadius:5,color:T.ts,fontSize:10,cursor:"pointer"}}>↓ SVG</button>}
+          {hasData&&<button onClick={handleExportPng} style={{padding:"5px 10px",background:"transparent",border:`1px solid ${T.bdr}`,borderRadius:5,color:T.ts,fontSize:10,cursor:"pointer"}}>↓ PNG</button>}
         </div>
       </header>
       <div style={{display:"flex",minHeight:"calc(100vh - 45px)"}}>
