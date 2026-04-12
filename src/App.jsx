@@ -245,6 +245,35 @@ export default function App(){
   const [nodes,setNodes]=useState([]);const [groups,setGroups]=useState([]);const [edges,setEdges]=useState([]);const [sel,setSel]=useState(null);const [connectFrom,setConnectFrom]=useState(null);const [drag,setDrag]=useState(null);const [rsz,setRsz]=useState(null);const [pan,setPan]=useState({x:0,y:0});const [panSt,setPanSt]=useState(null);const [zoom,setZoom]=useState(1);const [edgeLbl,setEdgeLbl]=useState("");const [edgeStyle,setEdgeStyle]=useState("solid");const [title,setTitle]=useState("Azure Deployment Diagram");const [grid,setGrid]=useState(true);const [input,setInput]=useState("");const [activeEx,setActiveEx]=useState(null);const [theme,setTheme]=useState("dark");const [editMode,setEditMode]=useState(false);const [showPalette,setShowPalette]=useState(false);const [openCat,setOpenCat]=useState(null);const [drawerOpen,setDrawerOpen]=useState(false);const [isMobile]=useState(typeof window!=="undefined"&&window.innerWidth<768);const [hasData,setHasData]=useState(false);
   const svgRef=useRef(null);const mainRef=useRef(null);const nid=useRef(100);const gid=useRef(100);const T=TH[theme];
 
+  const [historyStack, setHistoryStack] = useState([]);
+  const [futureStack, setFutureStack] = useState([]);
+
+  const pushHistory = useCallback(() => {
+    const entry = { nodes, groups, edges, title };
+    setHistoryStack(h => { const next = [...h, entry]; return next.length > 50 ? next.slice(-50) : next; });
+    setFutureStack([]);
+  }, [nodes, groups, edges, title]);
+
+  const undo = useCallback(() => {
+    if (!historyStack.length) return;
+    const prev = historyStack[historyStack.length - 1];
+    setFutureStack(f => [...f, { nodes, groups, edges, title }]);
+    setHistoryStack(h => h.slice(0, -1));
+    setNodes(prev.nodes); setGroups(prev.groups); setEdges(prev.edges); setTitle(prev.title);
+    setHasData(prev.nodes.length > 0 || prev.groups.length > 0);
+    setSel(null);
+  }, [historyStack, nodes, groups, edges, title]);
+
+  const redo = useCallback(() => {
+    if (!futureStack.length) return;
+    const next = futureStack[futureStack.length - 1];
+    setHistoryStack(h => [...h, { nodes, groups, edges, title }]);
+    setFutureStack(f => f.slice(0, -1));
+    setNodes(next.nodes); setGroups(next.groups); setEdges(next.edges); setTitle(next.title);
+    setHasData(next.nodes.length > 0 || next.groups.length > 0);
+    setSel(null);
+  }, [futureStack, nodes, groups, edges, title]);
+
   // Auto zoom-to-fit
   const zoomToFit = useCallback((nds, gps) => {
     if (!svgRef.current) return;
@@ -303,7 +332,7 @@ Architecture: ${input.trim()}`;
       const nIds = new Set(parsed.nodes.map(n=>n.id));
       parsed.edges = (parsed.edges||[]).filter(e=>nIds.has(e.from)&&nIds.has(e.to));
       const r = autoLayout(parsed);
-      setTitle(r.title||"Azure Diagram"); setNodes(r.nodes); setGroups(r.groups); setEdges(r.edges);
+      pushHistory(); setTitle(r.title||"Azure Diagram"); setNodes(r.nodes); setGroups(r.groups); setEdges(r.edges);
       setSel(null); setHasData(true);
       if(isMobile) setDrawerOpen(false);
       setTimeout(()=>zoomToFit(r.nodes,r.groups),100);
@@ -311,13 +340,14 @@ Architecture: ${input.trim()}`;
     finally { setLoading(false); }
   };
 
-  const loadDemo=(k)=>{const d=DEMOS[k];if(!d)return;const r=autoLayout(d);setTitle(r.title);setNodes(r.nodes);setGroups(r.groups);setEdges(r.edges);setSel(null);setHasData(true);if(isMobile)setDrawerOpen(false);setTimeout(()=>zoomToFit(r.nodes,r.groups),100);};
-  const loadJson=()=>{try{const si=input.indexOf("{"),ei=input.lastIndexOf("}");if(si===-1)throw new Error("No JSON");const p=JSON.parse(input.slice(si,ei+1));p.nodes=(p.nodes||[]).filter(n=>ALL[n.type]);p.groups=(p.groups||[]).filter(g=>GT[g.type]);const ids=new Set(p.nodes.map(n=>n.id));p.edges=(p.edges||[]).filter(e=>ids.has(e.from)&&ids.has(e.to));const r=autoLayout(p);setTitle(r.title||"Custom");setNodes(r.nodes);setGroups(r.groups);setEdges(r.edges);setSel(null);setHasData(true);if(isMobile)setDrawerOpen(false);setTimeout(()=>zoomToFit(r.nodes,r.groups),100);}catch(e){alert("Invalid JSON: "+e.message);}};
-  const addNode=useCallback(t=>{const id=`n${nid.current++}`;setNodes(p=>[...p,{id,type:t,label:ALL[t].name,x:400+(Math.random()-.5)*200-pan.x/zoom,y:300+(Math.random()-.5)*200-pan.y/zoom}]);setHasData(true);setEditMode(true);},[pan,zoom]);
-  const addGroup=useCallback(tpl=>{const id=`g${gid.current++}`;setGroups(p=>[...p,{id,type:tpl.type,label:tpl.name,x:250+(Math.random()-.5)*100-pan.x/zoom,y:180+(Math.random()-.5)*100-pan.y/zoom,w:300,h:220,color:tpl.color,border:tpl.border,dash:tpl.dash}]);setHasData(true);setEditMode(true);},[pan,zoom]);
+  const loadDemo=(k)=>{const d=DEMOS[k];if(!d)return;const r=autoLayout(d);pushHistory();setTitle(r.title);setNodes(r.nodes);setGroups(r.groups);setEdges(r.edges);setSel(null);setHasData(true);if(isMobile)setDrawerOpen(false);setTimeout(()=>zoomToFit(r.nodes,r.groups),100);};
+  const loadJson=()=>{try{const si=input.indexOf("{"),ei=input.lastIndexOf("}");if(si===-1)throw new Error("No JSON");const p=JSON.parse(input.slice(si,ei+1));p.nodes=(p.nodes||[]).filter(n=>ALL[n.type]);p.groups=(p.groups||[]).filter(g=>GT[g.type]);const ids=new Set(p.nodes.map(n=>n.id));p.edges=(p.edges||[]).filter(e=>ids.has(e.from)&&ids.has(e.to));const r=autoLayout(p);pushHistory();setTitle(r.title||"Custom");setNodes(r.nodes);setGroups(r.groups);setEdges(r.edges);setSel(null);setHasData(true);if(isMobile)setDrawerOpen(false);setTimeout(()=>zoomToFit(r.nodes,r.groups),100);}catch(e){alert("Invalid JSON: "+e.message);}};
+  const addNode=useCallback(t=>{const id=`n${nid.current++}`;pushHistory();setNodes(p=>[...p,{id,type:t,label:ALL[t].name,x:400+(Math.random()-.5)*200-pan.x/zoom,y:300+(Math.random()-.5)*200-pan.y/zoom}]);setHasData(true);setEditMode(true);},[pan,zoom,pushHistory]);
+  const addGroup=useCallback(tpl=>{const id=`g${gid.current++}`;pushHistory();setGroups(p=>[...p,{id,type:tpl.type,label:tpl.name,x:250+(Math.random()-.5)*100-pan.x/zoom,y:180+(Math.random()-.5)*100-pan.y/zoom,w:300,h:220,color:tpl.color,border:tpl.border,dash:tpl.dash}]);setHasData(true);setEditMode(true);},[pan,zoom,pushHistory]);
   // Re-layout: reconstruct children from current geometry, re-run autoLayout
   const reLayout = useCallback(() => {
     if (!nodes.length && !groups.length) return;
+    pushHistory();
     // Sort groups by area (smallest first) to detect nesting
     const sortedG = [...groups].sort((a,b)=>(a.w*a.h)-(b.w*b.h));
     const gChildren = {};
@@ -347,15 +377,15 @@ Architecture: ${input.trim()}`;
     const r = autoLayout(rebuilt);
     setTitle(r.title); setNodes(r.nodes); setGroups(r.groups); setEdges(r.edges);
     setSel(null); setTimeout(() => zoomToFit(r.nodes, r.groups), 100);
-  }, [nodes, groups, edges, title, zoomToFit]);
+  }, [nodes, groups, edges, title, zoomToFit, pushHistory]);
 
   const handleExport=()=>{const svg=mainRef.current?.querySelector("svg");if(!svg)return;const c=svg.cloneNode(true);c.setAttribute("xmlns","http://www.w3.org/2000/svg");const b=new Blob([new XMLSerializer().serializeToString(c)],{type:"image/svg+xml"});const u=URL.createObjectURL(b);const a=document.createElement("a");a.href=u;a.download=`azure-${Date.now()}.svg`;a.click();URL.revokeObjectURL(u);};
 
   const toSvg=useCallback((cx,cy)=>{if(!svgRef.current)return{x:0,y:0};const r=svgRef.current.getBoundingClientRect();return{x:(cx-r.left-pan.x)/zoom,y:(cy-r.top-pan.y)/zoom};},[pan,zoom]);
   const px=e=>e.clientX??e.touches?.[0]?.clientX??0;const py=e=>e.clientY??e.touches?.[0]?.clientY??0;
-  const onNodeDown=(e,id)=>{if(!editMode)return;e.stopPropagation();if(connectFrom){if(connectFrom!==id)setEdges(p=>[...p,{id:`e${Date.now()}`,from:connectFrom,to:id,label:edgeLbl,style:edgeStyle}]);setEdgeLbl("");setConnectFrom(null);return;}const pt=toSvg(px(e),py(e));const nd=nodes.find(n=>n.id===id);setDrag({kind:"node",id,ox:pt.x-nd.x,oy:pt.y-nd.y});setSel({kind:"node",id});};
-  const onGroupDown=(e,id)=>{if(!editMode)return;e.stopPropagation();if(connectFrom){if(connectFrom!==id)setEdges(p=>[...p,{id:`e${Date.now()}`,from:connectFrom,to:id,label:edgeLbl,style:edgeStyle}]);setEdgeLbl("");setConnectFrom(null);return;}const pt=toSvg(px(e),py(e));const g=groups.find(g=>g.id===id);setDrag({kind:"group",id,ox:pt.x-g.x,oy:pt.y-g.y,lastX:pt.x,lastY:pt.y});setSel({kind:"group",id});};
-  const onResizeDown=(e,id)=>{if(!editMode)return;e.stopPropagation();const g=groups.find(g=>g.id===id);setRsz({id,sw:g.w,sh:g.h,sx:px(e),sy:py(e)});};
+  const onNodeDown=(e,id)=>{if(!editMode)return;e.stopPropagation();if(connectFrom){if(connectFrom!==id){pushHistory();setEdges(p=>[...p,{id:`e${Date.now()}`,from:connectFrom,to:id,label:edgeLbl,style:edgeStyle}]);}setEdgeLbl("");setConnectFrom(null);return;}const pt=toSvg(px(e),py(e));const nd=nodes.find(n=>n.id===id);pushHistory();setDrag({kind:"node",id,ox:pt.x-nd.x,oy:pt.y-nd.y});setSel({kind:"node",id});};
+  const onGroupDown=(e,id)=>{if(!editMode)return;e.stopPropagation();if(connectFrom){if(connectFrom!==id){pushHistory();setEdges(p=>[...p,{id:`e${Date.now()}`,from:connectFrom,to:id,label:edgeLbl,style:edgeStyle}]);}setEdgeLbl("");setConnectFrom(null);return;}const pt=toSvg(px(e),py(e));const g=groups.find(g=>g.id===id);pushHistory();setDrag({kind:"group",id,ox:pt.x-g.x,oy:pt.y-g.y,lastX:pt.x,lastY:pt.y});setSel({kind:"group",id});};
+  const onResizeDown=(e,id)=>{if(!editMode)return;e.stopPropagation();const g=groups.find(g=>g.id===id);pushHistory();setRsz({id,sw:g.w,sh:g.h,sx:px(e),sy:py(e)});};
   const onMove=useCallback(e=>{const x=px(e),y=py(e);if(drag){e.preventDefault?.();const pt=toSvg(x,y);if(drag.kind==="node")setNodes(p=>p.map(n=>n.id===drag.id?{...n,x:pt.x-drag.ox,y:pt.y-drag.oy}:n));else{
     const dx=pt.x-drag.lastX,dy=pt.y-drag.lastY;
     drag.lastX=pt.x;drag.lastY=pt.y;
@@ -383,9 +413,10 @@ Architecture: ${input.trim()}`;
   const onUp=useCallback(()=>{setDrag(null);setRsz(null);setPanSt(null);},[]);
   const onCanvasDown=e=>{if(e.target===svgRef.current||e.target.closest(".cbg")){setSel(null);setConnectFrom(null);setPanSt({sx:px(e)-pan.x,sy:py(e)-pan.y});}};
   useEffect(()=>{const o={passive:false};window.addEventListener("mousemove",onMove);window.addEventListener("mouseup",onUp);window.addEventListener("touchmove",onMove,o);window.addEventListener("touchend",onUp);return ()=>{window.removeEventListener("mousemove",onMove);window.removeEventListener("mouseup",onUp);window.removeEventListener("touchmove",onMove);window.removeEventListener("touchend",onUp);};},[onMove,onUp]);
+  useEffect(()=>{const onKey=e=>{const mod=e.ctrlKey||e.metaKey;if(!mod)return;if(e.key==="z"&&!e.shiftKey){e.preventDefault();undo();}else if((e.key==="z"&&e.shiftKey)||e.key==="y"){e.preventDefault();redo();}};window.addEventListener("keydown",onKey);return()=>window.removeEventListener("keydown",onKey);},[undo,redo]);
   const onWheel=e=>{e.preventDefault();setZoom(z=>Math.max(.1,Math.min(5,z*(e.deltaY>0?.92:1.08))));};
-  const delSel=()=>{if(!sel)return;if(sel.kind==="node"){setNodes(p=>p.filter(n=>n.id!==sel.id));setEdges(p=>p.filter(e=>e.from!==sel.id&&e.to!==sel.id));}else if(sel.kind==="group")setGroups(p=>p.filter(g=>g.id!==sel.id));else if(sel.kind==="edge")setEdges(p=>p.filter(e=>e.id!==sel.id));setSel(null);};
-  const rename=(id,k,l)=>{if(k==="node")setNodes(p=>p.map(n=>n.id===id?{...n,label:l}:n));else setGroups(p=>p.map(g=>g.id===id?{...g,label:l}:g));};
+  const delSel=()=>{if(!sel)return;pushHistory();if(sel.kind==="node"){setNodes(p=>p.filter(n=>n.id!==sel.id));setEdges(p=>p.filter(e=>e.from!==sel.id&&e.to!==sel.id));}else if(sel.kind==="group")setGroups(p=>p.filter(g=>g.id!==sel.id));else if(sel.kind==="edge")setEdges(p=>p.filter(e=>e.id!==sel.id));setSel(null);};
+  const rename=(id,k,l)=>{pushHistory();if(k==="node")setNodes(p=>p.map(n=>n.id===id?{...n,label:l}:n));else setGroups(p=>p.map(g=>g.id===id?{...g,label:l}:g));};
   const selNode=sel?.kind==="node"?nodes.find(n=>n.id===sel.id):null;
   const selGroup=sel?.kind==="group"?groups.find(g=>g.id===sel.id):null;
   const selEdge=sel?.kind==="edge"?edges.find(e=>e.id===sel.id):null;
@@ -400,6 +431,8 @@ Architecture: ${input.trim()}`;
         </div>
         <div style={{display:"flex",gap:5}}>
           {hasData&&<button onClick={()=>setEditMode(v=>!v)} style={{padding:"5px 12px",background:editMode?"rgba(59,130,246,.12)":"transparent",border:`1px solid ${editMode?T.sel:T.bdr}`,borderRadius:5,color:editMode?T.sel:T.ts,fontSize:10,cursor:"pointer",fontWeight:editMode?600:400}}>{editMode?"✓ Editing":"✎ Edit"}</button>}
+          {hasData&&<button onClick={undo} disabled={!historyStack.length} title="Undo (Ctrl+Z)" style={{padding:"5px 10px",background:"transparent",border:`1px solid ${T.bdr}`,borderRadius:5,color:historyStack.length?T.ts:T.tm,fontSize:10,cursor:historyStack.length?"pointer":"default",opacity:historyStack.length?1:.4}}>↩ Undo</button>}
+          {hasData&&<button onClick={redo} disabled={!futureStack.length} title="Redo (Ctrl+Shift+Z)" style={{padding:"5px 10px",background:"transparent",border:`1px solid ${T.bdr}`,borderRadius:5,color:futureStack.length?T.ts:T.tm,fontSize:10,cursor:futureStack.length?"pointer":"default",opacity:futureStack.length?1:.4}}>↪ Redo</button>}
           <button onClick={()=>setTheme(t=>t==="dark"?"light":"dark")} style={{padding:"5px 10px",background:"transparent",border:`1px solid ${T.bdr}`,borderRadius:5,color:T.ts,fontSize:10,cursor:"pointer"}}>{theme==="dark"?"☀":"●"}</button>
           {hasData&&<button onClick={reLayout} style={{padding:"5px 10px",background:"transparent",border:`1px solid ${T.bdr}`,borderRadius:5,color:T.ts,fontSize:10,cursor:"pointer"}}>⟲ Layout</button>}
           {hasData&&<button onClick={()=>zoomToFit(nodes,groups)} style={{padding:"5px 10px",background:"transparent",border:`1px solid ${T.bdr}`,borderRadius:5,color:T.ts,fontSize:10,cursor:"pointer"}}>⊙ Fit</button>}
@@ -457,7 +490,7 @@ Architecture: ${input.trim()}`;
           {editMode&&(selNode||selGroup||selEdge)&&<div style={{position:"absolute",top:8,right:10,width:195,background:T.hbg,border:`1px solid ${T.bdr}`,borderRadius:10,padding:11,boxShadow:"0 8px 32px rgba(0,0,0,.3)",backdropFilter:"blur(12px)"}}>
             {selNode&&<><div style={{display:"flex",alignItems:"center",gap:7,marginBottom:8}}><img src={ICONS[selNode.type]} width={22} height={22} alt=""/><div style={{fontSize:10,fontWeight:600}}>{ALL[selNode.type].name}</div></div><label style={pl}>Label</label><input value={selNode.label} onChange={e=>rename(sel.id,"node",e.target.value)} style={pi(T)}/><label style={pl}>Edge label</label><input value={edgeLbl} onChange={e=>setEdgeLbl(e.target.value)} placeholder="HTTPS, 443" style={pi(T)}/><label style={pl}>Line</label><div style={{display:"flex",gap:3,marginBottom:4}}>{["solid","dashed"].map(s=> <button key={s} onClick={()=>setEdgeStyle(s)} style={{flex:1,padding:"3px 0",background:edgeStyle===s?"rgba(59,130,246,.1)":"transparent",border:`1px solid ${edgeStyle===s?T.sel+"50":T.bdr}`,borderRadius:4,color:edgeStyle===s?T.sel:T.tm,cursor:"pointer",fontSize:9,fontWeight:600,textTransform:"capitalize"}}>{s}</button>)}</div><div style={{display:"flex",gap:4,marginTop:5}}><button onClick={()=>setConnectFrom(sel.id)} style={{...pa,background:"rgba(59,130,246,.1)",color:"#60a5fa"}}>⟶ Connect</button><button onClick={delSel} style={{...pa,background:"rgba(239,68,68,.08)",color:"#f87171"}}>✕</button></div></>}
             {selGroup&&<><label style={pl}>Label</label><input value={selGroup.label} onChange={e=>rename(sel.id,"group",e.target.value)} style={pi(T)}/><label style={pl}>Edge label</label><input value={edgeLbl} onChange={e=>setEdgeLbl(e.target.value)} placeholder="VNet Peering" style={pi(T)}/><label style={pl}>Line</label><div style={{display:"flex",gap:3,marginBottom:4}}>{["solid","dashed"].map(s=> <button key={s} onClick={()=>setEdgeStyle(s)} style={{flex:1,padding:"3px 0",background:edgeStyle===s?"rgba(59,130,246,.1)":"transparent",border:`1px solid ${edgeStyle===s?T.sel+"50":T.bdr}`,borderRadius:4,color:edgeStyle===s?T.sel:T.tm,cursor:"pointer",fontSize:9,fontWeight:600,textTransform:"capitalize"}}>{s}</button>)}</div><div style={{display:"flex",gap:4,marginTop:5}}><button onClick={()=>setConnectFrom(sel.id)} style={{...pa,background:"rgba(59,130,246,.1)",color:"#60a5fa"}}>⟶ Connect</button><button onClick={delSel} style={{...pa,background:"rgba(239,68,68,.08)",color:"#f87171"}}>✕</button></div></>}
-            {selEdge&&<><label style={pl}>Label</label><input value={selEdge.label} onChange={e=>setEdges(p=>p.map(ed=>ed.id===sel.id?{...ed,label:e.target.value}:ed))} style={pi(T)}/><label style={pl}>Style</label><div style={{display:"flex",gap:3}}>{["solid","dashed"].map(s=> <button key={s} onClick={()=>setEdges(p=>p.map(ed=>ed.id===sel.id?{...ed,style:s}:ed))} style={{flex:1,padding:"3px 0",background:selEdge.style===s?"rgba(59,130,246,.1)":"transparent",border:`1px solid ${selEdge.style===s?T.sel+"50":T.bdr}`,borderRadius:4,color:selEdge.style===s?T.sel:T.tm,cursor:"pointer",fontSize:9,fontWeight:600,textTransform:"capitalize"}}>{s}</button>)}</div><button onClick={delSel} style={{...pa,width:"100%",marginTop:5,background:"rgba(239,68,68,.08)",color:"#f87171"}}>✕ Delete</button></>}
+            {selEdge&&<><label style={pl}>Label</label><input value={selEdge.label} onChange={e=>{pushHistory();setEdges(p=>p.map(ed=>ed.id===sel.id?{...ed,label:e.target.value}:ed));}} style={pi(T)}/><label style={pl}>Style</label><div style={{display:"flex",gap:3}}>{["solid","dashed"].map(s=> <button key={s} onClick={()=>{pushHistory();setEdges(p=>p.map(ed=>ed.id===sel.id?{...ed,style:s}:ed));}} style={{flex:1,padding:"3px 0",background:selEdge.style===s?"rgba(59,130,246,.1)":"transparent",border:`1px solid ${selEdge.style===s?T.sel+"50":T.bdr}`,borderRadius:4,color:selEdge.style===s?T.sel:T.tm,cursor:"pointer",fontSize:9,fontWeight:600,textTransform:"capitalize"}}>{s}</button>)}</div><button onClick={delSel} style={{...pa,width:"100%",marginTop:5,background:"rgba(239,68,68,.08)",color:"#f87171"}}>✕ Delete</button></>}
           </div>}
           <div style={{position:"absolute",bottom:12,right:12,display:"flex",alignItems:"center",gap:0,background:T.hbg,border:`1px solid ${T.bdr}`,borderRadius:8,overflow:"hidden",boxShadow:"0 2px 8px rgba(0,0,0,.2)",zIndex:20}}>
             <button onClick={()=>setZoom(z=>Math.max(.1,z*.85))} style={{padding:"6px 10px",background:"transparent",border:"none",borderRight:`1px solid ${T.bdr}`,color:T.ts,fontSize:14,cursor:"pointer",lineHeight:1}}>−</button>
