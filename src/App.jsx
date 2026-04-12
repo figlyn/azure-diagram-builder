@@ -56,13 +56,13 @@ const DEMOS={
       {id:"g8",type:"subnet_grp",label:"snet-dev-001 (10.2.1.0/24)",children:["n6","n7"]}
     ],
     nodes:[
-      {id:"n1",type:"vm",label:"corp-dc-servers"},
-      {id:"n2",type:"vpngw",label:"vpngw-hub-001",wafPillar:"SE"},
-      {id:"n3",type:"firewall",label:"afw-hub-001",wafPillar:"SE"},
-      {id:"n4",type:"aks",label:"aks-prod-001",wafPillar:"RE"},
-      {id:"n5",type:"appservice",label:"app-prod-001",wafPillar:"PE"},
-      {id:"n6",type:"vm",label:"vm-dev-001",wafPillar:"CO"},
-      {id:"n7",type:"sqldb",label:"sql-dev-001",wafPillar:"CO"}
+      {id:"n1",type:"vm",label:"Domain Controllers",techName:"corp-dc-servers"},
+      {id:"n2",type:"vpngw",label:"VPN Gateway",techName:"vpngw-hub-001",wafPillar:"SE"},
+      {id:"n3",type:"firewall",label:"Corporate Firewall",techName:"afw-hub-001",wafPillar:"SE"},
+      {id:"n4",type:"aks",label:"Production Cluster",techName:"aks-prod-001",wafPillar:"RE"},
+      {id:"n5",type:"appservice",label:"Web Application",techName:"app-prod-001",wafPillar:"PE"},
+      {id:"n6",type:"vm",label:"Dev Workstation",techName:"vm-dev-001",wafPillar:"CO"},
+      {id:"n7",type:"sqldb",label:"Dev Database",techName:"sql-dev-001",wafPillar:"CO"}
     ],
     edges:[
       {from:"n1",to:"n2",label:"IPSec/IKEv2",style:"solid"},
@@ -82,14 +82,14 @@ const DEMOS={
       {id:"g5",type:"subnet_grp",label:"snet-nodepool (10.0.2.0/24)",children:["n3","n4","n5"]}
     ],
     nodes:[
-      {id:"n1",type:"frontdoor",label:"afd-baseline-001",wafPillar:"PE"},
-      {id:"n2",type:"appgw",label:"agw-ingress-001",wafPillar:"SE"},
-      {id:"n3",type:"aks",label:"aks-baseline-001",wafPillar:"RE"},
-      {id:"n4",type:"container",label:"workload-pods",wafPillar:"PE"},
-      {id:"n5",type:"nsg",label:"nsg-nodepool-001",wafPillar:"SE"},
-      {id:"n6",type:"acr",label:"cr-baseline-001",wafPillar:"OE"},
-      {id:"n7",type:"keyvault",label:"kv-baseline-001",wafPillar:"SE"},
-      {id:"n8",type:"appinsights",label:"appi-baseline-001",wafPillar:"OE"}
+      {id:"n1",type:"frontdoor",label:"Global CDN",techName:"afd-baseline-001",wafPillar:"PE"},
+      {id:"n2",type:"appgw",label:"Ingress Controller",techName:"agw-ingress-001",wafPillar:"SE"},
+      {id:"n3",type:"aks",label:"Microservices Cluster",techName:"aks-baseline-001",wafPillar:"RE"},
+      {id:"n4",type:"container",label:"Workload Pods",techName:"workload-pods",wafPillar:"PE"},
+      {id:"n5",type:"nsg",label:"Node Pool NSG",techName:"nsg-nodepool-001",wafPillar:"SE"},
+      {id:"n6",type:"acr",label:"Container Registry",techName:"cr-baseline-001",wafPillar:"OE"},
+      {id:"n7",type:"keyvault",label:"Secret Store",techName:"kv-baseline-001",wafPillar:"SE"},
+      {id:"n8",type:"appinsights",label:"App Telemetry",techName:"appi-baseline-001",wafPillar:"OE"}
     ],
     edges:[
       {from:"n1",to:"n2",label:"HTTPS/443",style:"solid"},
@@ -109,15 +109,15 @@ const DEMOS={
       {id:"g4",type:"custom",label:"Storage Layer",children:["n8","n9"]}
     ],
     nodes:[
-      {id:"n1",type:"apim",label:"apim-gateway-001",wafPillar:"SE"},
-      {id:"n2",type:"appinsights",label:"appi-eventsvc-001",wafPillar:"OE"},
-      {id:"n3",type:"eventhub",label:"evh-events-001",wafPillar:"RE"},
-      {id:"n4",type:"servicebus",label:"sb-commands-001",wafPillar:"RE"},
-      {id:"n5",type:"functions",label:"func-processor-001",wafPillar:"PE"},
-      {id:"n6",type:"functions",label:"func-handler-001",wafPillar:"PE"},
-      {id:"n7",type:"streamanalytics",label:"asa-realtime-001",wafPillar:"PE"},
-      {id:"n8",type:"cosmos",label:"cosmos-state-001",wafPillar:"RE"},
-      {id:"n9",type:"storage",label:"st-archive-001",wafPillar:"CO"}
+      {id:"n1",type:"apim",label:"API Gateway",techName:"apim-gateway-001",wafPillar:"SE"},
+      {id:"n2",type:"appinsights",label:"Observability",techName:"appi-eventsvc-001",wafPillar:"OE"},
+      {id:"n3",type:"eventhub",label:"Event Stream",techName:"evh-events-001",wafPillar:"RE"},
+      {id:"n4",type:"servicebus",label:"Command Bus",techName:"sb-commands-001",wafPillar:"RE"},
+      {id:"n5",type:"functions",label:"Event Processor",techName:"func-processor-001",wafPillar:"PE"},
+      {id:"n6",type:"functions",label:"Command Handler",techName:"func-handler-001",wafPillar:"PE"},
+      {id:"n7",type:"streamanalytics",label:"Real-time Analytics",techName:"asa-realtime-001",wafPillar:"PE"},
+      {id:"n8",type:"cosmos",label:"State Store",techName:"cosmos-state-001",wafPillar:"RE"},
+      {id:"n9",type:"storage",label:"Cold Archive",techName:"st-archive-001",wafPillar:"CO"}
     ],
     edges:[
       {from:"n1",to:"n3",label:"Publish AMQP",style:"solid"},
@@ -142,18 +142,18 @@ const DEMOS={
       {id:"g6",type:"subnet_grp",label:"snet-app (10.0.2.0/24)",children:["n5","n6","n7","n8"]}
     ],
     nodes:[
-      {id:"n1",type:"entra",label:"entra-tenant-001",wafPillar:"SE"},
-      {id:"n2",type:"condaccess",label:"ca-policy-001",wafPillar:"SE"},
-      {id:"n3",type:"appgw",label:"agw-waf-001",wafPillar:"SE"},
-      {id:"n4",type:"nsg",label:"nsg-dmz-001",wafPillar:"SE"},
-      {id:"n5",type:"aks",label:"aks-apps-001",wafPillar:"RE"},
-      {id:"n6",type:"functions",label:"func-api-001",wafPillar:"PE"},
-      {id:"n7",type:"keyvault",label:"kv-secrets-001",wafPillar:"SE"},
-      {id:"n8",type:"sqldb",label:"sql-private-001",wafPillar:"RE"},
-      {id:"n9",type:"sentinel",label:"siem-sentinel-001",wafPillar:"SE"},
-      {id:"n10",type:"monitor",label:"mon-platform-001",wafPillar:"OE"},
-      {id:"n11",type:"loganalytics",label:"log-security-001",wafPillar:"OE"},
-      {id:"n12",type:"keyvault",label:"kv-platform-001",wafPillar:"SE"}
+      {id:"n1",type:"entra",label:"Identity Provider",techName:"entra-tenant-001",wafPillar:"SE"},
+      {id:"n2",type:"condaccess",label:"Access Policies",techName:"ca-policy-001",wafPillar:"SE"},
+      {id:"n3",type:"appgw",label:"WAF Ingress",techName:"agw-waf-001",wafPillar:"SE"},
+      {id:"n4",type:"nsg",label:"DMZ Firewall",techName:"nsg-dmz-001",wafPillar:"SE"},
+      {id:"n5",type:"aks",label:"App Cluster",techName:"aks-apps-001",wafPillar:"RE"},
+      {id:"n6",type:"functions",label:"API Functions",techName:"func-api-001",wafPillar:"PE"},
+      {id:"n7",type:"keyvault",label:"App Secrets",techName:"kv-secrets-001",wafPillar:"SE"},
+      {id:"n8",type:"sqldb",label:"Private Database",techName:"sql-private-001",wafPillar:"RE"},
+      {id:"n9",type:"sentinel",label:"SIEM",techName:"siem-sentinel-001",wafPillar:"SE"},
+      {id:"n10",type:"monitor",label:"Monitoring",techName:"mon-platform-001",wafPillar:"OE"},
+      {id:"n11",type:"loganalytics",label:"Security Logs",techName:"log-security-001",wafPillar:"OE"},
+      {id:"n12",type:"keyvault",label:"Platform Secrets",techName:"kv-platform-001",wafPillar:"SE"}
     ],
     edges:[
       {from:"n1",to:"n2",label:"Identity Policy",style:"dashed"},
@@ -418,8 +418,9 @@ export default function App(){
     try {
       const prompt = `Return ONLY a JSON object for an Azure deployment diagram. No markdown, no backticks, no explanation.
 
-Schema: {"title":"str","groups":[{"id":"g1","type":"rg","label":"str","children":["n1","g2"]}],"nodes":[{"id":"n1","type":"vm","label":"str"}],"edges":[{"from":"n1","to":"n2","label":"","style":"solid"}]}
+Schema: {"title":"str","groups":[{"id":"g1","type":"rg","label":"str","children":["n1","g2"]}],"nodes":[{"id":"n1","type":"vm","label":"str","techName":"str"}],"edges":[{"from":"n1","to":"n2","label":"","style":"solid"}]}
 
+Node fields: label = business/context name (e.g. "Order Processing API", "Customer Database"), techName = CAF-compliant resource name (e.g. "app-orders-prod-001", "sql-customers-prod-001"). Both are required for every node.
 Node types: ${SERVICE_TYPES}
 Group types: rg, vnet_grp, subnet_grp, aks_grp, region, onprem, custom
 Groups can nest: children[] can contain node IDs and group IDs.
@@ -434,10 +435,11 @@ AZURE RESOURCE HIERARCHY (must be respected):
 - Do NOT put a vnet_grp inside a subnet_grp, or an rg inside a vnet_grp
 
 CAF NAMING CONVENTIONS (Microsoft Cloud Adoption Framework):
-Use these prefixes for node labels: vm-<workload>-<env>-<###>, vmss-<w>-<e>, aks-<w>-<e>, app-<w>-<e>, func-<w>-<e>, ci-<w>-<e>, vnet-<w>-<e>-<region>, nsg-<purpose>, lbe-<w>-<e>, agw-<w>-<e>, afd-<w>-<e>, afw-<w>-<e>, sql-<w>-<e>, cosmos-<w>-<e>, redis-<w>-<e>, st<w><e> (no hyphens for storage), kv-<w>-<e>, appi-<w>-<e>, log-<w>-<e>, sb-<w>-<e>, apim-<w>-<e>
+Use these prefixes for node techName: vm-<workload>-<env>-<###>, vmss-<w>-<e>, aks-<w>-<e>, app-<w>-<e>, func-<w>-<e>, ci-<w>-<e>, vnet-<w>-<e>-<region>, nsg-<purpose>, lbe-<w>-<e>, agw-<w>-<e>, afd-<w>-<e>, afw-<w>-<e>, sql-<w>-<e>, cosmos-<w>-<e>, redis-<w>-<e>, st<w><e> (no hyphens for storage), kv-<w>-<e>, appi-<w>-<e>, log-<w>-<e>, sb-<w>-<e>, apim-<w>-<e>
 Use rg-<workload>-<env>-<region> for Resource Group labels.
 Use vnet-<workload>-<env>-<region> for VNet labels. Use snet-<purpose> for Subnet labels.
-Example: rg-networking-prod-eastus, vnet-hub-prod-eastus, snet-frontend, vm-web-prod-001
+Example techNames: vm-web-prod-001, app-orders-prod-001, sql-customers-prod-001
+Example labels: "Web Server", "Order Processing API", "Customer Database"
 
 Architecture: ${input.trim()}`;
 
@@ -473,7 +475,7 @@ Architecture: ${input.trim()}`;
 
   const loadDemo=(k)=>{const d=DEMOS[k];if(!d)return;const r=autoLayout(d);pushHistory();setTitle(r.title);setNodes(r.nodes);setGroups(r.groups);setEdges(r.edges);setSel(null);setHasData(true);if(isMobile)setDrawerOpen(false);setTimeout(()=>zoomToFit(r.nodes,r.groups),100);};
   const loadJson=()=>{try{const si=input.indexOf("{"),ei=input.lastIndexOf("}");if(si===-1)throw new Error("No JSON");const p=JSON.parse(input.slice(si,ei+1));p.nodes=(p.nodes||[]).filter(n=>ALL[n.type]);p.groups=(p.groups||[]).filter(g=>GT[g.type]);const ids=new Set(p.nodes.map(n=>n.id));p.edges=(p.edges||[]).filter(e=>ids.has(e.from)&&ids.has(e.to));const r=autoLayout(p);pushHistory();setTitle(r.title||"Custom");setNodes(r.nodes);setGroups(r.groups);setEdges(r.edges);setSel(null);setHasData(true);if(isMobile)setDrawerOpen(false);setTimeout(()=>zoomToFit(r.nodes,r.groups),100);}catch(e){alert("Invalid JSON: "+e.message);}};
-  const addNode=useCallback(t=>{const id=`n${nid.current++}`;pushHistory();setNodes(p=>[...p,{id,type:t,label:suggestName(t),x:400+(Math.random()-.5)*200-pan.x/zoom,y:300+(Math.random()-.5)*200-pan.y/zoom}]);setHasData(true);setEditMode(true);},[pan,zoom,pushHistory]);
+  const addNode=useCallback(t=>{const id=`n${nid.current++}`;pushHistory();setNodes(p=>[...p,{id,type:t,label:ALL[t]?.name||t,techName:suggestName(t),x:400+(Math.random()-.5)*200-pan.x/zoom,y:300+(Math.random()-.5)*200-pan.y/zoom}]);setHasData(true);setEditMode(true);},[pan,zoom,pushHistory]);
   const addGroup=useCallback(tpl=>{const id=`g${gid.current++}`;pushHistory();setGroups(p=>[...p,{id,type:tpl.type,label:tpl.name,x:250+(Math.random()-.5)*100-pan.x/zoom,y:180+(Math.random()-.5)*100-pan.y/zoom,w:300,h:220,color:tpl.color,border:tpl.border,dash:tpl.dash}]);setHasData(true);setEditMode(true);},[pan,zoom,pushHistory]);
   // Re-layout: reconstruct children from current geometry, re-run autoLayout
   const reLayout = useCallback(() => {
@@ -581,6 +583,7 @@ Architecture: ${input.trim()}`;
   const onWheel=e=>{e.preventDefault();setZoom(z=>Math.max(.1,Math.min(5,z*(e.deltaY>0?.92:1.08))));};
   const delSel=()=>{if(!sel)return;pushHistory();if(sel.kind==="node"){setNodes(p=>p.filter(n=>n.id!==sel.id));setEdges(p=>p.filter(e=>e.from!==sel.id&&e.to!==sel.id));}else if(sel.kind==="group")setGroups(p=>p.filter(g=>g.id!==sel.id));else if(sel.kind==="edge")setEdges(p=>p.filter(e=>e.id!==sel.id));setSel(null);};
   const rename=(id,k,l)=>{pushHistory();if(k==="node")setNodes(p=>p.map(n=>n.id===id?{...n,label:l}:n));else setGroups(p=>p.map(g=>g.id===id?{...g,label:l}:g));};
+  const renameTech=(id,v)=>{pushHistory();setNodes(p=>p.map(n=>n.id===id?{...n,techName:v}:n));};
   const selNode=sel?.kind==="node"?nodes.find(n=>n.id===sel.id):null;
   const selGroup=sel?.kind==="group"?groups.find(g=>g.id===sel.id):null;
   const selEdge=sel?.kind==="edge"?edges.find(e=>e.id===sel.id):null;
@@ -648,7 +651,7 @@ Architecture: ${input.trim()}`;
                 <g key={edge.id} style={{cursor:"pointer"}} onClick={e=>{e.stopPropagation();setSel({kind:"edge",id:edge.id});}}><path d={p} fill="none" stroke="transparent" strokeWidth="14"/><path d={p} fill="none" stroke={isSel?T.sel:T.tm} strokeWidth={isSel?2.5:1.3} strokeDasharray={edge.style==="dashed"?"6 3":"none"} markerEnd={isSel?"url(#ahS)":"url(#ah)"} opacity={isSel?1:.45}/>{edge.label&&(()=>{const mx=(a.x+b.x)/2,my=(a.y+b.y)/2-10; return <g><rect x={mx-edge.label.length*3.2-5} y={my-9} width={edge.label.length*6.4+10} height={14} rx={7} fill={T.srf} stroke={T.bdr} strokeWidth=".5"/><text x={mx} y={my} textAnchor="middle" fill={isSel?T.sel:T.ts} fontSize="8.5" fontFamily="Consolas,monospace" fontWeight="500">{edge.label}</text></g>;})()}</g>
               );})}
               {nodes.map(nd=>{const s=ALL[nd.type];if(!s)return null;const isSel=sel?.kind==="node"&&sel.id===nd.id;const isCon=connectFrom===nd.id; return (
-                <g key={nd.id} onMouseDown={e=>onNodeDown(e,nd.id)} onTouchStart={e=>onNodeDown(e,nd.id)} style={{cursor:editMode?(connectFrom?"crosshair":"grab"):"default"}}>{(isSel||isCon)&&<rect x={nd.x-32} y={nd.y-32} width={64} height={64} rx={14} fill="none" stroke={isCon?"#f59e0b":T.sel} strokeWidth="2" opacity=".45" strokeDasharray={isCon?"4 2":"none"}/>}<rect x={nd.x-28} y={nd.y-28} width={56} height={56} rx={12} fill={T.nBg} stroke={isSel?T.sel+"80":T.nSt} strokeWidth={isSel?1.5:1}/><image href={ICONS[nd.type]} x={nd.x-14} y={nd.y-14} width={28} height={28} style={{pointerEvents:"none"}}/><text x={nd.x} y={nd.y+40} textAnchor="middle" fill={T.ts} fontSize="9" fontFamily="Segoe UI" fontWeight="500" style={{pointerEvents:"none"}}>{nd.label.length>16?nd.label.slice(0,15)+"…":nd.label}</text>{nd.wafPillar&&WAF_PILLARS[nd.wafPillar]&&<><circle cx={nd.x+24} cy={nd.y-24} r={9} fill={WAF_PILLARS[nd.wafPillar].color} style={{pointerEvents:"none"}}/><text x={nd.x+24} y={nd.y-20} textAnchor="middle" fill="white" fontSize="7" fontFamily="Segoe UI" fontWeight="700" style={{pointerEvents:"none"}}>{nd.wafPillar}</text></>}{(nameViolations.has(nd.id)||hierViolations.has(nd.id))&&<g style={{pointerEvents:"none"}}><title>{nameViolations.has(nd.id)?"Non-CAF name":""}{ nameViolations.has(nd.id)&&hierViolations.has(nd.id)?"; ":""}{hierViolations.has(nd.id)?"Hierarchy violation":""}</title><circle cx={nd.x-24} cy={nd.y-24} r={7} fill="#f59e0b"/><text x={nd.x-24} y={nd.y-20} textAnchor="middle" fill="white" fontSize="9" fontWeight="700" fontFamily="Segoe UI">!</text></g>}</g>
+                <g key={nd.id} onMouseDown={e=>onNodeDown(e,nd.id)} onTouchStart={e=>onNodeDown(e,nd.id)} style={{cursor:editMode?(connectFrom?"crosshair":"grab"):"default"}}>{(isSel||isCon)&&<rect x={nd.x-32} y={nd.y-32} width={64} height={64} rx={14} fill="none" stroke={isCon?"#f59e0b":T.sel} strokeWidth="2" opacity=".45" strokeDasharray={isCon?"4 2":"none"}/>}<rect x={nd.x-28} y={nd.y-28} width={56} height={56} rx={12} fill={T.nBg} stroke={isSel?T.sel+"80":T.nSt} strokeWidth={isSel?1.5:1}/><image href={ICONS[nd.type]} x={nd.x-14} y={nd.y-14} width={28} height={28} style={{pointerEvents:"none"}}/><text x={nd.x} y={nd.y+40} textAnchor="middle" fill={T.ts} fontSize="9" fontFamily="Segoe UI" fontWeight="500" style={{pointerEvents:"none"}}>{nd.label.length>16?nd.label.slice(0,15)+"…":nd.label}</text>{nd.techName&&<text x={nd.x} y={nd.y+51} textAnchor="middle" fill="#a5b4fc" fontSize="7" fontFamily="Consolas,monospace" style={{pointerEvents:"none"}}>{nd.techName.length>20?nd.techName.slice(0,19)+"…":nd.techName}</text>}{nd.wafPillar&&WAF_PILLARS[nd.wafPillar]&&<><circle cx={nd.x+24} cy={nd.y-24} r={9} fill={WAF_PILLARS[nd.wafPillar].color} style={{pointerEvents:"none"}}/><text x={nd.x+24} y={nd.y-20} textAnchor="middle" fill="white" fontSize="7" fontFamily="Segoe UI" fontWeight="700" style={{pointerEvents:"none"}}>{nd.wafPillar}</text></>}{(nameViolations.has(nd.id)||hierViolations.has(nd.id))&&<g style={{pointerEvents:"none"}}><title>{nameViolations.has(nd.id)?"Non-CAF name":""}{ nameViolations.has(nd.id)&&hierViolations.has(nd.id)?"; ":""}{hierViolations.has(nd.id)?"Hierarchy violation":""}</title><circle cx={nd.x-24} cy={nd.y-24} r={7} fill="#f59e0b"/><text x={nd.x-24} y={nd.y-20} textAnchor="middle" fill="white" fontSize="9" fontWeight="700" fontFamily="Segoe UI">!</text></g>}</g>
               );})}
             </g>
             <text x="50%" y="24" textAnchor="middle" fill={T.tf} fontSize="14" fontWeight="600" fontFamily="Segoe UI" letterSpacing=".06em">{title}</text>
@@ -656,7 +659,7 @@ Architecture: ${input.trim()}`;
           {connectFrom&&<div style={{position:"absolute",top:8,left:"50%",transform:"translateX(-50%)",fontSize:11,color:"#fbbf24",padding:"4px 14px",background:"rgba(245,158,11,.08)",border:"1px solid rgba(245,158,11,.18)",borderRadius:7}}>Click target node or group</div>}
           {toast&&<div style={{position:"absolute",bottom:60,left:"50%",transform:"translateX(-50%)",padding:"8px 16px",background:"rgba(15,23,42,.92)",border:`1px solid ${T.bdr}`,borderRadius:8,color:T.text,fontSize:11,fontWeight:500,backdropFilter:"blur(8px)",boxShadow:"0 4px 16px rgba(0,0,0,.4)",whiteSpace:"nowrap",zIndex:30,pointerEvents:"none"}}>{toast}</div>}
           {editMode&&(selNode||selGroup||selEdge)&&<div style={{position:"absolute",top:8,right:10,width:195,background:T.hbg,border:`1px solid ${T.bdr}`,borderRadius:10,padding:11,boxShadow:"0 8px 32px rgba(0,0,0,.3)",backdropFilter:"blur(12px)"}}>
-            {selNode&&<><div style={{display:"flex",alignItems:"center",gap:7,marginBottom:8}}><img src={ICONS[selNode.type]} width={22} height={22} alt=""/><div style={{fontSize:10,fontWeight:600}}>{ALL[selNode.type].name}</div></div><label style={pl}>Label</label><input value={selNode.label} onChange={e=>rename(sel.id,"node",e.target.value)} style={pi(T)}/><label style={pl}>Edge label</label><input value={edgeLbl} onChange={e=>setEdgeLbl(e.target.value)} placeholder="HTTPS, 443" style={pi(T)}/><label style={pl}>Line</label><div style={{display:"flex",gap:3,marginBottom:4}}>{["solid","dashed"].map(s=> <button key={s} onClick={()=>setEdgeStyle(s)} style={{flex:1,padding:"3px 0",background:edgeStyle===s?"rgba(59,130,246,.1)":"transparent",border:`1px solid ${edgeStyle===s?T.sel+"50":T.bdr}`,borderRadius:4,color:edgeStyle===s?T.sel:T.tm,cursor:"pointer",fontSize:9,fontWeight:600,textTransform:"capitalize"}}>{s}</button>)}</div><div style={{display:"flex",gap:4,marginTop:5}}><button onClick={()=>setConnectFrom(sel.id)} style={{...pa,background:"rgba(59,130,246,.1)",color:"#60a5fa"}}>⟶ Connect</button><button onClick={delSel} style={{...pa,background:"rgba(239,68,68,.08)",color:"#f87171"}}>✕</button></div></>}
+            {selNode&&<><div style={{display:"flex",alignItems:"center",gap:7,marginBottom:8}}><img src={ICONS[selNode.type]} width={22} height={22} alt=""/><div style={{fontSize:10,fontWeight:600}}>{ALL[selNode.type].name}</div></div><label style={pl}>Business Name</label><input value={selNode.label} onChange={e=>rename(sel.id,"node",e.target.value)} style={pi(T)}/><label style={pl}>Technical Name</label><input value={selNode.techName||""} onChange={e=>renameTech(sel.id,e.target.value)} style={{...pi(T),color:"#a5b4fc"}}/><label style={pl}>Edge label</label><input value={edgeLbl} onChange={e=>setEdgeLbl(e.target.value)} placeholder="HTTPS, 443" style={pi(T)}/><label style={pl}>Line</label><div style={{display:"flex",gap:3,marginBottom:4}}>{["solid","dashed"].map(s=> <button key={s} onClick={()=>setEdgeStyle(s)} style={{flex:1,padding:"3px 0",background:edgeStyle===s?"rgba(59,130,246,.1)":"transparent",border:`1px solid ${edgeStyle===s?T.sel+"50":T.bdr}`,borderRadius:4,color:edgeStyle===s?T.sel:T.tm,cursor:"pointer",fontSize:9,fontWeight:600,textTransform:"capitalize"}}>{s}</button>)}</div><div style={{display:"flex",gap:4,marginTop:5}}><button onClick={()=>setConnectFrom(sel.id)} style={{...pa,background:"rgba(59,130,246,.1)",color:"#60a5fa"}}>⟶ Connect</button><button onClick={delSel} style={{...pa,background:"rgba(239,68,68,.08)",color:"#f87171"}}>✕</button></div></>}
             {selGroup&&<><label style={pl}>Label</label><input value={selGroup.label} onChange={e=>rename(sel.id,"group",e.target.value)} style={pi(T)}/><label style={pl}>Edge label</label><input value={edgeLbl} onChange={e=>setEdgeLbl(e.target.value)} placeholder="VNet Peering" style={pi(T)}/><label style={pl}>Line</label><div style={{display:"flex",gap:3,marginBottom:4}}>{["solid","dashed"].map(s=> <button key={s} onClick={()=>setEdgeStyle(s)} style={{flex:1,padding:"3px 0",background:edgeStyle===s?"rgba(59,130,246,.1)":"transparent",border:`1px solid ${edgeStyle===s?T.sel+"50":T.bdr}`,borderRadius:4,color:edgeStyle===s?T.sel:T.tm,cursor:"pointer",fontSize:9,fontWeight:600,textTransform:"capitalize"}}>{s}</button>)}</div><div style={{display:"flex",gap:4,marginTop:5}}><button onClick={()=>setConnectFrom(sel.id)} style={{...pa,background:"rgba(59,130,246,.1)",color:"#60a5fa"}}>⟶ Connect</button><button onClick={delSel} style={{...pa,background:"rgba(239,68,68,.08)",color:"#f87171"}}>✕</button></div></>}
             {selEdge&&<><label style={pl}>Label</label><input value={selEdge.label} onChange={e=>{pushHistory();setEdges(p=>p.map(ed=>ed.id===sel.id?{...ed,label:e.target.value}:ed));}} style={pi(T)}/><label style={pl}>Style</label><div style={{display:"flex",gap:3}}>{["solid","dashed"].map(s=> <button key={s} onClick={()=>{pushHistory();setEdges(p=>p.map(ed=>ed.id===sel.id?{...ed,style:s}:ed));}} style={{flex:1,padding:"3px 0",background:selEdge.style===s?"rgba(59,130,246,.1)":"transparent",border:`1px solid ${selEdge.style===s?T.sel+"50":T.bdr}`,borderRadius:4,color:selEdge.style===s?T.sel:T.tm,cursor:"pointer",fontSize:9,fontWeight:600,textTransform:"capitalize"}}>{s}</button>)}</div><button onClick={delSel} style={{...pa,width:"100%",marginTop:5,background:"rgba(239,68,68,.08)",color:"#f87171"}}>✕ Delete</button></>}
           </div>}
