@@ -22,37 +22,139 @@ const GTS=[
 ];
 const GT={};GTS.forEach(t=>{GT[t.type]=t;});
 
+const WAF_PILLARS={
+  RE:{label:"RE",color:"#3b82f6",name:"Reliability"},
+  SE:{label:"SE",color:"#ef4444",name:"Security"},
+  CO:{label:"CO",color:"#22c55e",name:"Cost Optimization"},
+  OE:{label:"OE",color:"#a855f7",name:"Operational Excellence"},
+  PE:{label:"PE",color:"#f97316",name:"Performance Efficiency"},
+};
+
 const DEMOS={
-  threetier:{title:"3-Tier Web App",
+  hubspoke:{title:"Hub-Spoke Network Topology",
     groups:[
-      {id:"g1",type:"region",label:"East US",children:["g2","n1","n7","n8","n9","n10","n11"]},
-      {id:"g2",type:"vnet_grp",label:"Production VNet 10.0.0.0/16",children:["g3","g4","n2"]},
-      {id:"g3",type:"subnet_grp",label:"Frontend 10.0.1.0/24",children:["n3","n4"]},
-      {id:"g4",type:"subnet_grp",label:"Backend 10.0.2.0/24",children:["n5","n6"]}
+      {id:"g1",type:"onprem",label:"Corporate Data Center",children:["n1"]},
+      {id:"g2",type:"region",label:"Azure East US",children:["g3","g4","g5"]},
+      {id:"g3",type:"vnet_grp",label:"hub-vnet-001 (10.0.0.0/16)",children:["g6"]},
+      {id:"g4",type:"vnet_grp",label:"spoke-prod-vnet (10.1.0.0/16)",children:["g7"]},
+      {id:"g5",type:"vnet_grp",label:"spoke-dev-vnet (10.2.0.0/16)",children:["g8"]},
+      {id:"g6",type:"subnet_grp",label:"GatewaySubnet (10.0.0.0/27)",children:["n2","n3"]},
+      {id:"g7",type:"subnet_grp",label:"snet-prod-001 (10.1.1.0/24)",children:["n4","n5"]},
+      {id:"g8",type:"subnet_grp",label:"snet-dev-001 (10.2.1.0/24)",children:["n6","n7"]}
     ],
-    nodes:[{id:"n1",type:"frontdoor",label:"Front Door (WAF)"},{id:"n2",type:"nsg",label:"NSG"},{id:"n3",type:"appgw",label:"App Gateway"},{id:"n4",type:"appservice",label:"Web App"},{id:"n5",type:"aks",label:"AKS Microservices"},{id:"n6",type:"redis",label:"Redis Cache"},{id:"n7",type:"cosmos",label:"Cosmos DB"},{id:"n8",type:"storage",label:"Blob Storage"},{id:"n9",type:"keyvault",label:"Key Vault"},{id:"n10",type:"entra",label:"Entra ID"},{id:"n11",type:"appinsights",label:"App Insights"}],
-    edges:[{from:"n1",to:"n3",label:"HTTPS/443",style:"solid"},{from:"n3",to:"n4",label:"HTTP/8080",style:"solid"},{from:"n4",to:"n5",label:"gRPC",style:"solid"},{from:"n5",to:"n7",label:"TCP/443",style:"solid"},{from:"n5",to:"n6",label:"TCP/6380",style:"solid"},{from:"n4",to:"n8",label:"HTTPS",style:"solid"},{from:"n5",to:"n9",label:"Managed ID",style:"dashed"},{from:"n4",to:"n10",label:"OIDC",style:"dashed"},{from:"n4",to:"n11",label:"Telemetry",style:"dashed"},{from:"n5",to:"n11",label:"Metrics",style:"dashed"}]
+    nodes:[
+      {id:"n1",type:"vm",label:"corp-dc-servers"},
+      {id:"n2",type:"vpngw",label:"vpngw-hub-001",wafPillar:"SE"},
+      {id:"n3",type:"firewall",label:"afw-hub-001",wafPillar:"SE"},
+      {id:"n4",type:"aks",label:"aks-prod-001",wafPillar:"RE"},
+      {id:"n5",type:"appservice",label:"app-prod-001",wafPillar:"PE"},
+      {id:"n6",type:"vm",label:"vm-dev-001",wafPillar:"CO"},
+      {id:"n7",type:"sqldb",label:"sql-dev-001",wafPillar:"CO"}
+    ],
+    edges:[
+      {from:"n1",to:"n2",label:"IPSec/IKEv2",style:"solid"},
+      {from:"n2",to:"n3",label:"Internal",style:"solid"},
+      {from:"n3",to:"n4",label:"VNet Peering",style:"solid"},
+      {from:"n3",to:"n6",label:"VNet Peering",style:"solid"},
+      {from:"n4",to:"n5",label:"Internal",style:"solid"},
+      {from:"n4",to:"n7",label:"TCP/1433",style:"dashed"}
+    ]
   },
-  iot:{title:"IoT Analytics Pipeline",
+  aksbaseline:{title:"AKS Baseline Architecture",
     groups:[
-      {id:"g1",type:"rg",label:"IoT Resource Group",children:["g2","g3","g4","n6","n9","n10"]},
-      {id:"g2",type:"custom",label:"Ingestion Layer",children:["n1","n2"]},
-      {id:"g3",type:"custom",label:"Processing",children:["n3","n4","n5"]},
-      {id:"g4",type:"custom",label:"Serving",children:["n7","n8"]}
+      {id:"g1",type:"region",label:"East US",children:["g2","g3","n1"]},
+      {id:"g2",type:"vnet_grp",label:"aks-vnet-001 (10.0.0.0/16)",children:["g4","g5"]},
+      {id:"g3",type:"rg",label:"rg-aks-baseline",children:["n6","n7","n8"]},
+      {id:"g4",type:"subnet_grp",label:"snet-ingress (10.0.1.0/24)",children:["n2"]},
+      {id:"g5",type:"subnet_grp",label:"snet-nodepool (10.0.2.0/24)",children:["n3","n4","n5"]}
     ],
-    nodes:[{id:"n1",type:"eventhub",label:"IoT Event Hub"},{id:"n2",type:"functions",label:"Ingestion Functions"},{id:"n3",type:"streamanalytics",label:"Stream Analytics"},{id:"n4",type:"cosmos",label:"Hot Store"},{id:"n5",type:"storage",label:"Data Lake"},{id:"n6",type:"datafactory",label:"Data Factory ETL"},{id:"n7",type:"apim",label:"API Gateway"},{id:"n8",type:"appservice",label:"Dashboard App"},{id:"n9",type:"logicapp",label:"Alert Logic App"},{id:"n10",type:"loganalytics",label:"Log Analytics"}],
-    edges:[{from:"n1",to:"n2",label:"Events",style:"solid"},{from:"n1",to:"n3",label:"Stream",style:"solid"},{from:"n3",to:"n4",label:"Hot path",style:"solid"},{from:"n3",to:"n5",label:"Cold path",style:"solid"},{from:"n6",to:"n5",label:"Batch ETL",style:"solid"},{from:"n4",to:"n7",label:"REST",style:"solid"},{from:"n7",to:"n8",label:"HTTPS",style:"solid"},{from:"n3",to:"n9",label:"Threshold",style:"dashed"},{from:"n8",to:"n10",label:"Telemetry",style:"dashed"}]
+    nodes:[
+      {id:"n1",type:"frontdoor",label:"afd-baseline-001",wafPillar:"PE"},
+      {id:"n2",type:"appgw",label:"agw-ingress-001",wafPillar:"SE"},
+      {id:"n3",type:"aks",label:"aks-baseline-001",wafPillar:"RE"},
+      {id:"n4",type:"container",label:"workload-pods",wafPillar:"PE"},
+      {id:"n5",type:"nsg",label:"nsg-nodepool-001",wafPillar:"SE"},
+      {id:"n6",type:"acr",label:"cr-baseline-001",wafPillar:"OE"},
+      {id:"n7",type:"keyvault",label:"kv-baseline-001",wafPillar:"SE"},
+      {id:"n8",type:"appinsights",label:"appi-baseline-001",wafPillar:"OE"}
+    ],
+    edges:[
+      {from:"n1",to:"n2",label:"HTTPS/443",style:"solid"},
+      {from:"n2",to:"n3",label:"HTTP/80",style:"solid"},
+      {from:"n3",to:"n4",label:"Internal",style:"solid"},
+      {from:"n3",to:"n6",label:"Pull HTTPS",style:"solid"},
+      {from:"n3",to:"n7",label:"Managed Identity",style:"dashed"},
+      {from:"n3",to:"n8",label:"Telemetry",style:"dashed"},
+      {from:"n5",to:"n3",label:"Micro-segment",style:"dashed"}
+    ]
   },
-  hybrid:{title:"Hybrid Cloud with ExpressRoute",
+  eventdriven:{title:"Event-Driven Microservices",
     groups:[
-      {id:"g1",type:"onprem",label:"On-Premises Data Center",children:["n1","n2"]},
-      {id:"g5",type:"region",label:"Azure East US",children:["g2","g3","g4","n3"]},
-      {id:"g2",type:"vnet_grp",label:"Hub VNet 10.1.0.0/16",children:["n4","n5"]},
-      {id:"g3",type:"vnet_grp",label:"Spoke VNet 10.2.0.0/16",children:["n6","n7"]},
-      {id:"g4",type:"rg",label:"Platform Services",children:["n8","n9","n10","n11"]}
+      {id:"g1",type:"rg",label:"rg-event-driven-001",children:["g2","g3","g4"]},
+      {id:"g2",type:"custom",label:"Ingestion Layer",children:["n3","n4"]},
+      {id:"g3",type:"custom",label:"Processing Layer",children:["n5","n6","n7"]},
+      {id:"g4",type:"custom",label:"Storage Layer",children:["n8","n9"]}
     ],
-    nodes:[{id:"n1",type:"vm",label:"DC Servers"},{id:"n2",type:"sqldb",label:"Legacy SQL"},{id:"n3",type:"expressroute",label:"ExpressRoute 10G"},{id:"n4",type:"firewall",label:"Azure Firewall"},{id:"n5",type:"vpngw",label:"VPN Gateway"},{id:"n6",type:"aks",label:"AKS Workloads"},{id:"n7",type:"storage",label:"Azure Files"},{id:"n8",type:"sqldb",label:"Azure SQL (Geo)"},{id:"n9",type:"devops",label:"Azure DevOps"},{id:"n10",type:"sentinel",label:"Sentinel SIEM"},{id:"n11",type:"entra",label:"Hybrid Identity"}],
-    edges:[{from:"n1",to:"n3",label:"10 Gbps BGP",style:"solid"},{from:"n3",to:"n4",label:"Peering",style:"solid"},{from:"n1",to:"n5",label:"IPSec backup",style:"dashed"},{from:"n4",to:"n6",label:"Inspected",style:"solid"},{from:"n6",to:"n8",label:"TCP/1433",style:"solid"},{from:"n6",to:"n7",label:"SMB 445",style:"solid"},{from:"n2",to:"n8",label:"Geo-repl",style:"dashed"},{from:"n9",to:"n6",label:"CI/CD",style:"dashed"},{from:"n4",to:"n10",label:"Diag logs",style:"dashed"},{from:"n11",to:"n1",label:"AAD Connect",style:"dashed"}]
+    nodes:[
+      {id:"n1",type:"apim",label:"apim-gateway-001",wafPillar:"SE"},
+      {id:"n2",type:"appinsights",label:"appi-eventsvc-001",wafPillar:"OE"},
+      {id:"n3",type:"eventhub",label:"evh-events-001",wafPillar:"RE"},
+      {id:"n4",type:"servicebus",label:"sb-commands-001",wafPillar:"RE"},
+      {id:"n5",type:"functions",label:"func-processor-001",wafPillar:"PE"},
+      {id:"n6",type:"functions",label:"func-handler-001",wafPillar:"PE"},
+      {id:"n7",type:"streamanalytics",label:"asa-realtime-001",wafPillar:"PE"},
+      {id:"n8",type:"cosmos",label:"cosmos-state-001",wafPillar:"RE"},
+      {id:"n9",type:"storage",label:"st-archive-001",wafPillar:"CO"}
+    ],
+    edges:[
+      {from:"n1",to:"n3",label:"Publish AMQP",style:"solid"},
+      {from:"n1",to:"n4",label:"Route AMQP",style:"solid"},
+      {from:"n3",to:"n5",label:"Trigger",style:"solid"},
+      {from:"n4",to:"n6",label:"Trigger",style:"solid"},
+      {from:"n5",to:"n8",label:"Write",style:"solid"},
+      {from:"n6",to:"n8",label:"Write",style:"solid"},
+      {from:"n7",to:"n3",label:"Query",style:"solid"},
+      {from:"n7",to:"n9",label:"Archive",style:"solid"},
+      {from:"n1",to:"n2",label:"Telemetry",style:"dashed"},
+      {from:"n5",to:"n2",label:"Metrics",style:"dashed"}
+    ]
+  },
+  zerotrust:{title:"Zero-Trust Network Architecture",
+    groups:[
+      {id:"g1",type:"custom",label:"Identity Perimeter",children:["n1","n2"]},
+      {id:"g2",type:"region",label:"East US",children:["g3","g4"]},
+      {id:"g3",type:"vnet_grp",label:"vnet-zerotrust-001 (10.0.0.0/16)",children:["g5","g6"]},
+      {id:"g4",type:"rg",label:"rg-security-platform",children:["n9","n10","n11","n12"]},
+      {id:"g5",type:"subnet_grp",label:"snet-dmz (10.0.1.0/24)",children:["n3","n4"]},
+      {id:"g6",type:"subnet_grp",label:"snet-app (10.0.2.0/24)",children:["n5","n6","n7","n8"]}
+    ],
+    nodes:[
+      {id:"n1",type:"entra",label:"entra-tenant-001",wafPillar:"SE"},
+      {id:"n2",type:"condaccess",label:"ca-policy-001",wafPillar:"SE"},
+      {id:"n3",type:"appgw",label:"agw-waf-001",wafPillar:"SE"},
+      {id:"n4",type:"nsg",label:"nsg-dmz-001",wafPillar:"SE"},
+      {id:"n5",type:"aks",label:"aks-apps-001",wafPillar:"RE"},
+      {id:"n6",type:"functions",label:"func-api-001",wafPillar:"PE"},
+      {id:"n7",type:"keyvault",label:"kv-secrets-001",wafPillar:"SE"},
+      {id:"n8",type:"sqldb",label:"sql-private-001",wafPillar:"RE"},
+      {id:"n9",type:"sentinel",label:"siem-sentinel-001",wafPillar:"SE"},
+      {id:"n10",type:"monitor",label:"mon-platform-001",wafPillar:"OE"},
+      {id:"n11",type:"loganalytics",label:"log-security-001",wafPillar:"OE"},
+      {id:"n12",type:"keyvault",label:"kv-platform-001",wafPillar:"SE"}
+    ],
+    edges:[
+      {from:"n1",to:"n2",label:"Identity Policy",style:"dashed"},
+      {from:"n2",to:"n3",label:"Authorized",style:"solid"},
+      {from:"n3",to:"n5",label:"WAF Filtered",style:"solid"},
+      {from:"n3",to:"n6",label:"WAF Filtered",style:"solid"},
+      {from:"n4",to:"n5",label:"Micro-segment",style:"solid"},
+      {from:"n5",to:"n7",label:"Private Link",style:"dashed"},
+      {from:"n5",to:"n8",label:"Private Link",style:"dashed"},
+      {from:"n6",to:"n12",label:"Secrets",style:"dashed"},
+      {from:"n3",to:"n9",label:"WAF Logs",style:"dashed"},
+      {from:"n9",to:"n10",label:"Security Events",style:"solid"},
+      {from:"n10",to:"n11",label:"Logs",style:"dashed"}
+    ]
   },
 };
 
@@ -470,7 +572,7 @@ Architecture: ${input.trim()}`;
       <div style={{display:"flex",minHeight:"calc(100vh - 45px)"}}>
         {isMobile&&drawerOpen&&<div onClick={()=>setDrawerOpen(false)} style={{position:"fixed",inset:0,top:45,background:"rgba(0,0,0,.5)",zIndex:40}}/>}
         <aside style={{width:isMobile?"85vw":280,position:isMobile?"fixed":"relative",left:isMobile?(drawerOpen?0:"-100%"):0,top:isMobile?45:0,height:isMobile?"calc(100vh-45px)":"auto",zIndex:isMobile?50:1,transition:"left .3s",borderRight:`1px solid ${T.bdr}`,padding:10,display:"flex",flexDirection:"column",gap:7,overflowY:"auto",flexShrink:0,background:T.srf}}>
-          <div><label style={lbl(T)}>EXAMPLES</label><div style={{display:"flex",gap:3,flexWrap:"wrap"}}>{[["threetier","3-Tier Web"],["iot","IoT Pipeline"],["hybrid","Hybrid Cloud"]].map(([k,l])=> <button key={k} onClick={()=>setActiveEx(k)} style={{padding:"4px 8px",borderRadius:4,border:`1px solid ${activeEx===k?"#0078D4":T.bdr}`,background:activeEx===k?"rgba(0,120,212,.1)":"transparent",color:activeEx===k?"#0078D4":T.ts,fontSize:9,cursor:"pointer"}}>{l}</button>)}</div></div>
+          <div><label style={lbl(T)}>EXAMPLES</label><div style={{display:"flex",gap:3,flexWrap:"wrap"}}>{[["hubspoke","Hub-Spoke"],["aksbaseline","AKS Baseline"],["eventdriven","Event-Driven"],["zerotrust","Zero-Trust"]].map(([k,l])=> <button key={k} onClick={()=>setActiveEx(k)} style={{padding:"4px 8px",borderRadius:4,border:`1px solid ${activeEx===k?"#0078D4":T.bdr}`,background:activeEx===k?"rgba(0,120,212,.1)":"transparent",color:activeEx===k?"#0078D4":T.ts,fontSize:9,cursor:"pointer"}}>{l}</button>)}</div></div>
           {activeEx&&<button onClick={()=>loadDemo(activeEx)} style={{padding:9,borderRadius:5,border:"none",background:"linear-gradient(135deg,#0078D4,#5C2D91)",color:"white",fontSize:11,fontWeight:600,cursor:"pointer"}}>▶ Load Demo</button>}
           <div><label style={lbl(T)}>DESCRIBE OR PASTE JSON</label><textarea value={input} onChange={e=>setInput(e.target.value)} placeholder={"Describe your architecture...\nor paste diagram JSON"} style={{width:"100%",minHeight:90,padding:8,borderRadius:4,border:`1px solid ${T.bdr}`,background:T.bg,color:T.text,fontSize:10,fontFamily:"Consolas,monospace",lineHeight:1.5,resize:"vertical",outline:"none",boxSizing:"border-box"}}/>
             <div style={{display:"flex",gap:4,marginTop:4}}>
@@ -510,7 +612,7 @@ Architecture: ${input.trim()}`;
                 <g key={edge.id} style={{cursor:"pointer"}} onClick={e=>{e.stopPropagation();setSel({kind:"edge",id:edge.id});}}><path d={p} fill="none" stroke="transparent" strokeWidth="14"/><path d={p} fill="none" stroke={isSel?T.sel:T.tm} strokeWidth={isSel?2.5:1.3} strokeDasharray={edge.style==="dashed"?"6 3":"none"} markerEnd={isSel?"url(#ahS)":"url(#ah)"} opacity={isSel?1:.45}/>{edge.label&&(()=>{const mx=(a.x+b.x)/2,my=(a.y+b.y)/2-10; return <g><rect x={mx-edge.label.length*3.2-5} y={my-9} width={edge.label.length*6.4+10} height={14} rx={7} fill={T.srf} stroke={T.bdr} strokeWidth=".5"/><text x={mx} y={my} textAnchor="middle" fill={isSel?T.sel:T.ts} fontSize="8.5" fontFamily="Consolas,monospace" fontWeight="500">{edge.label}</text></g>;})()}</g>
               );})}
               {nodes.map(nd=>{const s=ALL[nd.type];if(!s)return null;const isSel=sel?.kind==="node"&&sel.id===nd.id;const isCon=connectFrom===nd.id; return (
-                <g key={nd.id} onMouseDown={e=>onNodeDown(e,nd.id)} onTouchStart={e=>onNodeDown(e,nd.id)} style={{cursor:editMode?(connectFrom?"crosshair":"grab"):"default"}}>{(isSel||isCon)&&<rect x={nd.x-32} y={nd.y-32} width={64} height={64} rx={14} fill="none" stroke={isCon?"#f59e0b":T.sel} strokeWidth="2" opacity=".45" strokeDasharray={isCon?"4 2":"none"}/>}<rect x={nd.x-28} y={nd.y-28} width={56} height={56} rx={12} fill={T.nBg} stroke={isSel?T.sel+"80":T.nSt} strokeWidth={isSel?1.5:1}/><image href={ICONS[nd.type]} x={nd.x-14} y={nd.y-14} width={28} height={28} style={{pointerEvents:"none"}}/><text x={nd.x} y={nd.y+40} textAnchor="middle" fill={T.ts} fontSize="9" fontFamily="Segoe UI" fontWeight="500" style={{pointerEvents:"none"}}>{nd.label.length>16?nd.label.slice(0,15)+"…":nd.label}</text></g>
+                <g key={nd.id} onMouseDown={e=>onNodeDown(e,nd.id)} onTouchStart={e=>onNodeDown(e,nd.id)} style={{cursor:editMode?(connectFrom?"crosshair":"grab"):"default"}}>{(isSel||isCon)&&<rect x={nd.x-32} y={nd.y-32} width={64} height={64} rx={14} fill="none" stroke={isCon?"#f59e0b":T.sel} strokeWidth="2" opacity=".45" strokeDasharray={isCon?"4 2":"none"}/>}<rect x={nd.x-28} y={nd.y-28} width={56} height={56} rx={12} fill={T.nBg} stroke={isSel?T.sel+"80":T.nSt} strokeWidth={isSel?1.5:1}/><image href={ICONS[nd.type]} x={nd.x-14} y={nd.y-14} width={28} height={28} style={{pointerEvents:"none"}}/><text x={nd.x} y={nd.y+40} textAnchor="middle" fill={T.ts} fontSize="9" fontFamily="Segoe UI" fontWeight="500" style={{pointerEvents:"none"}}>{nd.label.length>16?nd.label.slice(0,15)+"…":nd.label}</text>{nd.wafPillar&&WAF_PILLARS[nd.wafPillar]&&<><circle cx={nd.x+24} cy={nd.y-24} r={9} fill={WAF_PILLARS[nd.wafPillar].color} style={{pointerEvents:"none"}}/><text x={nd.x+24} y={nd.y-20} textAnchor="middle" fill="white" fontSize="7" fontFamily="Segoe UI" fontWeight="700" style={{pointerEvents:"none"}}>{nd.wafPillar}</text></>}</g>
               );})}
             </g>
             <text x="50%" y="24" textAnchor="middle" fill={T.tf} fontSize="14" fontWeight="600" fontFamily="Segoe UI" letterSpacing=".06em">{title}</text>
