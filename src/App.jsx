@@ -304,15 +304,15 @@ Architecture: ${input.trim()}`;
       parsed.edges = (parsed.edges||[]).filter(e=>nIds.has(e.from)&&nIds.has(e.to));
       const r = autoLayout(parsed);
       setTitle(r.title||"Azure Diagram"); setNodes(r.nodes); setGroups(r.groups); setEdges(r.edges);
-      setSel(null); setHasData(true); setEditMode(true);
+      setSel(null); setHasData(true);
       if(isMobile) setDrawerOpen(false);
       setTimeout(()=>zoomToFit(r.nodes,r.groups),100);
     } catch(err) { setGenError(err.message); }
     finally { setLoading(false); }
   };
 
-  const loadDemo=(k)=>{const d=DEMOS[k];if(!d)return;const r=autoLayout(d);setTitle(r.title);setNodes(r.nodes);setGroups(r.groups);setEdges(r.edges);setSel(null);setHasData(true);setEditMode(true);if(isMobile)setDrawerOpen(false);setTimeout(()=>zoomToFit(r.nodes,r.groups),100);};
-  const loadJson=()=>{try{const si=input.indexOf("{"),ei=input.lastIndexOf("}");if(si===-1)throw new Error("No JSON");const p=JSON.parse(input.slice(si,ei+1));p.nodes=(p.nodes||[]).filter(n=>ALL[n.type]);p.groups=(p.groups||[]).filter(g=>GT[g.type]);const ids=new Set(p.nodes.map(n=>n.id));p.edges=(p.edges||[]).filter(e=>ids.has(e.from)&&ids.has(e.to));const r=autoLayout(p);setTitle(r.title||"Custom");setNodes(r.nodes);setGroups(r.groups);setEdges(r.edges);setSel(null);setHasData(true);setEditMode(true);if(isMobile)setDrawerOpen(false);setTimeout(()=>zoomToFit(r.nodes,r.groups),100);}catch(e){alert("Invalid JSON: "+e.message);}};
+  const loadDemo=(k)=>{const d=DEMOS[k];if(!d)return;const r=autoLayout(d);setTitle(r.title);setNodes(r.nodes);setGroups(r.groups);setEdges(r.edges);setSel(null);setHasData(true);if(isMobile)setDrawerOpen(false);setTimeout(()=>zoomToFit(r.nodes,r.groups),100);};
+  const loadJson=()=>{try{const si=input.indexOf("{"),ei=input.lastIndexOf("}");if(si===-1)throw new Error("No JSON");const p=JSON.parse(input.slice(si,ei+1));p.nodes=(p.nodes||[]).filter(n=>ALL[n.type]);p.groups=(p.groups||[]).filter(g=>GT[g.type]);const ids=new Set(p.nodes.map(n=>n.id));p.edges=(p.edges||[]).filter(e=>ids.has(e.from)&&ids.has(e.to));const r=autoLayout(p);setTitle(r.title||"Custom");setNodes(r.nodes);setGroups(r.groups);setEdges(r.edges);setSel(null);setHasData(true);if(isMobile)setDrawerOpen(false);setTimeout(()=>zoomToFit(r.nodes,r.groups),100);}catch(e){alert("Invalid JSON: "+e.message);}};
   const addNode=useCallback(t=>{const id=`n${nid.current++}`;setNodes(p=>[...p,{id,type:t,label:ALL[t].name,x:400+(Math.random()-.5)*200-pan.x/zoom,y:300+(Math.random()-.5)*200-pan.y/zoom}]);setHasData(true);setEditMode(true);},[pan,zoom]);
   const addGroup=useCallback(tpl=>{const id=`g${gid.current++}`;setGroups(p=>[...p,{id,type:tpl.type,label:tpl.name,x:250+(Math.random()-.5)*100-pan.x/zoom,y:180+(Math.random()-.5)*100-pan.y/zoom,w:300,h:220,color:tpl.color,border:tpl.border,dash:tpl.dash}]);setHasData(true);setEditMode(true);},[pan,zoom]);
   // Re-layout: reconstruct children from current geometry, re-run autoLayout
@@ -459,7 +459,12 @@ Architecture: ${input.trim()}`;
             {selGroup&&<><label style={pl}>Label</label><input value={selGroup.label} onChange={e=>rename(sel.id,"group",e.target.value)} style={pi(T)}/><label style={pl}>Edge label</label><input value={edgeLbl} onChange={e=>setEdgeLbl(e.target.value)} placeholder="VNet Peering" style={pi(T)}/><label style={pl}>Line</label><div style={{display:"flex",gap:3,marginBottom:4}}>{["solid","dashed"].map(s=> <button key={s} onClick={()=>setEdgeStyle(s)} style={{flex:1,padding:"3px 0",background:edgeStyle===s?"rgba(59,130,246,.1)":"transparent",border:`1px solid ${edgeStyle===s?T.sel+"50":T.bdr}`,borderRadius:4,color:edgeStyle===s?T.sel:T.tm,cursor:"pointer",fontSize:9,fontWeight:600,textTransform:"capitalize"}}>{s}</button>)}</div><div style={{display:"flex",gap:4,marginTop:5}}><button onClick={()=>setConnectFrom(sel.id)} style={{...pa,background:"rgba(59,130,246,.1)",color:"#60a5fa"}}>⟶ Connect</button><button onClick={delSel} style={{...pa,background:"rgba(239,68,68,.08)",color:"#f87171"}}>✕</button></div></>}
             {selEdge&&<><label style={pl}>Label</label><input value={selEdge.label} onChange={e=>setEdges(p=>p.map(ed=>ed.id===sel.id?{...ed,label:e.target.value}:ed))} style={pi(T)}/><label style={pl}>Style</label><div style={{display:"flex",gap:3}}>{["solid","dashed"].map(s=> <button key={s} onClick={()=>setEdges(p=>p.map(ed=>ed.id===sel.id?{...ed,style:s}:ed))} style={{flex:1,padding:"3px 0",background:selEdge.style===s?"rgba(59,130,246,.1)":"transparent",border:`1px solid ${selEdge.style===s?T.sel+"50":T.bdr}`,borderRadius:4,color:selEdge.style===s?T.sel:T.tm,cursor:"pointer",fontSize:9,fontWeight:600,textTransform:"capitalize"}}>{s}</button>)}</div><button onClick={delSel} style={{...pa,width:"100%",marginTop:5,background:"rgba(239,68,68,.08)",color:"#f87171"}}>✕ Delete</button></>}
           </div>}
-          <div style={{position:"absolute",bottom:8,right:12,fontSize:10,color:T.tf}}>{Math.round(zoom*100)}%</div>
+          <div style={{position:"absolute",bottom:12,right:12,display:"flex",alignItems:"center",gap:0,background:T.hbg,border:`1px solid ${T.bdr}`,borderRadius:8,overflow:"hidden",boxShadow:"0 2px 8px rgba(0,0,0,.2)",zIndex:20}}>
+            <button onClick={()=>setZoom(z=>Math.max(.1,z*.85))} style={{padding:"6px 10px",background:"transparent",border:"none",borderRight:`1px solid ${T.bdr}`,color:T.ts,fontSize:14,cursor:"pointer",lineHeight:1}}>−</button>
+            <span style={{padding:"4px 8px",fontSize:10,color:T.tf,minWidth:40,textAlign:"center"}}>{Math.round(zoom*100)}%</span>
+            <button onClick={()=>setZoom(z=>Math.min(5,z*1.18))} style={{padding:"6px 10px",background:"transparent",border:"none",borderRight:`1px solid ${T.bdr}`,borderLeft:`1px solid ${T.bdr}`,color:T.ts,fontSize:14,cursor:"pointer",lineHeight:1}}>+</button>
+            <button onClick={()=>zoomToFit(nodes,groups)} style={{padding:"6px 10px",background:"transparent",border:"none",color:T.ts,fontSize:12,cursor:"pointer",lineHeight:1}}>⊙</button>
+          </div>
         </main>
       </div>
       <style>{`*{box-sizing:border-box;user-select:none}::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:${T.bdr};border-radius:3px}textarea::placeholder{color:${T.tf}}textarea,input{user-select:text}`}</style>
