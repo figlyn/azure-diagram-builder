@@ -1,0 +1,25 @@
+{
+  "name": "azure-diagram-builder",
+  "compatibility_date": "2026-02-18",
+  "main": "src/worker.ts",
+  "routes": [{ "pattern": "azure.nwgrm.org/*", "zone_name": "nwgrm.org" }],
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS"
+  },
+  "observability": {
+    "enabled": false,
+    "logs": {
+      "enabled": true,
+      "head_sampling_rate": 1,
+      "persist": true,
+      "invocation_logs": true
+    }
+  },
+  "env": {
+    "staging": {
+      "name": "azure-diagram-builder-staging",
+      "routes": [{ "pattern": "staging.nwgrm.org/*", "zone_name": "nwgrm.org" }]
+    }
+  }
+}
