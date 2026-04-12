@@ -44,7 +44,7 @@ const HIER_GROUPS={region:new Set(["rg","vnet_grp","onprem","custom","aks_grp"])
 const HIER_NODES={subnet_grp:new Set(["vm","vmss","aks","appservice","functions","container","nsg","lb","appgw"]),aks_grp:new Set(["container","acr","monitor","appinsights","loganalytics"])};
 
 const DEMOS={
-  hubspoke:{title:"Hub-Spoke Network Topology",
+  hubspoke:{title:"Contoso Enterprise Network",
     groups:[
       {id:"g1",type:"onprem",label:"Corporate Data Center",children:["n1"]},
       {id:"g2",type:"region",label:"Azure East US",children:["g3","g4","g5"]},
@@ -57,12 +57,14 @@ const DEMOS={
     ],
     nodes:[
       {id:"n1",type:"vm",label:"Domain Controllers",techName:"corp-dc-servers"},
-      {id:"n2",type:"vpngw",label:"VPN Gateway",techName:"vpngw-hub-001",wafPillar:"SE"},
-      {id:"n3",type:"firewall",label:"Corporate Firewall",techName:"afw-hub-001",wafPillar:"SE"},
-      {id:"n4",type:"aks",label:"Production Cluster",techName:"aks-prod-001",wafPillar:"RE"},
-      {id:"n5",type:"appservice",label:"Web Application",techName:"app-prod-001",wafPillar:"PE"},
-      {id:"n6",type:"vm",label:"Dev Workstation",techName:"vm-dev-001",wafPillar:"CO"},
-      {id:"n7",type:"sqldb",label:"Dev Database",techName:"sql-dev-001",wafPillar:"CO"}
+      {id:"n2",type:"vpngw",label:"Corporate Office Gateway",techName:"vgw-corp-hub-001",wafPillar:"SE"},
+      {id:"n3",type:"firewall",label:"Central Traffic Inspector",techName:"afw-hub-001",wafPillar:"SE"},
+      {id:"n4",type:"aks",label:"Product Catalog Platform",techName:"aks-spoke1-prod-001",wafPillar:"RE"},
+      {id:"n5",type:"appservice",label:"Employee Self-Service Portal",techName:"app-spoke2-prod-001",wafPillar:"PE"},
+      {id:"n6",type:"vm",label:"Legacy ERP Middleware",techName:"vm-spoke3-erp-001",wafPillar:"CO"},
+      {id:"n7",type:"sqldb",label:"Customer Master Database",techName:"sqldb-spoke1-prod-001",wafPillar:"CO"},
+      {id:"n8",type:"keyvault",label:"Shared Secrets Store",techName:"kv-hub-001",wafPillar:"SE"},
+      {id:"n9",type:"monitor",label:"Enterprise Operations Dashboard",techName:"log-hub-001",wafPillar:"OE"}
     ],
     edges:[
       {from:"n1",to:"n2",label:"IPSec/IKEv2",style:"solid"},
@@ -70,26 +72,30 @@ const DEMOS={
       {from:"n3",to:"n4",label:"VNet Peering",style:"solid"},
       {from:"n3",to:"n6",label:"VNet Peering",style:"solid"},
       {from:"n4",to:"n5",label:"Internal",style:"solid"},
-      {from:"n4",to:"n7",label:"TCP/1433",style:"dashed"}
+      {from:"n4",to:"n7",label:"TCP/1433",style:"dashed"},
+      {from:"n3",to:"n8",label:"Private Link",style:"dashed"},
+      {from:"n3",to:"n9",label:"Diagnostics",style:"dashed"}
     ]
   },
-  aksbaseline:{title:"AKS Baseline Architecture",
+  aksbaseline:{title:"NorthwindTraders.com \u2014 Cloud-Native Storefront",
     groups:[
       {id:"g1",type:"region",label:"East US",children:["g2","g3","n1"]},
       {id:"g2",type:"vnet_grp",label:"aks-vnet-001 (10.0.0.0/16)",children:["g4","g5"]},
-      {id:"g3",type:"rg",label:"rg-aks-baseline",children:["n6","n7","n8"]},
+      {id:"g3",type:"rg",label:"rg-aks-baseline",children:["n6","n7","n8","n9","n10"]},
       {id:"g4",type:"subnet_grp",label:"snet-ingress (10.0.1.0/24)",children:["n2"]},
       {id:"g5",type:"subnet_grp",label:"snet-nodepool (10.0.2.0/24)",children:["n3","n4","n5"]}
     ],
     nodes:[
-      {id:"n1",type:"frontdoor",label:"Global CDN",techName:"afd-baseline-001",wafPillar:"PE"},
-      {id:"n2",type:"appgw",label:"Ingress Controller",techName:"agw-ingress-001",wafPillar:"SE"},
-      {id:"n3",type:"aks",label:"Microservices Cluster",techName:"aks-baseline-001",wafPillar:"RE"},
+      {id:"n1",type:"frontdoor",label:"Global Storefront Accelerator",techName:"afd-ecom-prod-001",wafPillar:"PE"},
+      {id:"n2",type:"appgw",label:"Storefront Traffic Manager",techName:"agw-ecom-prod-001",wafPillar:"SE"},
+      {id:"n3",type:"aks",label:"Checkout & Catalog Services",techName:"aks-ecom-prod-001",wafPillar:"RE"},
       {id:"n4",type:"container",label:"Workload Pods",techName:"workload-pods",wafPillar:"PE"},
       {id:"n5",type:"nsg",label:"Node Pool NSG",techName:"nsg-nodepool-001",wafPillar:"SE"},
-      {id:"n6",type:"acr",label:"Container Registry",techName:"cr-baseline-001",wafPillar:"OE"},
-      {id:"n7",type:"keyvault",label:"Secret Store",techName:"kv-baseline-001",wafPillar:"SE"},
-      {id:"n8",type:"appinsights",label:"App Telemetry",techName:"appi-baseline-001",wafPillar:"OE"}
+      {id:"n6",type:"acr",label:"Release Artifact Registry",techName:"cr-ecom-prod-001",wafPillar:"OE"},
+      {id:"n7",type:"keyvault",label:"Payment Tokenization Vault",techName:"kv-ecom-prod-001",wafPillar:"SE"},
+      {id:"n8",type:"appinsights",label:"Shopper Experience Telemetry",techName:"appi-ecom-prod-001",wafPillar:"OE"},
+      {id:"n9",type:"monitor",label:"Platform Health Center",techName:"monitor-ecom-prod-001",wafPillar:"OE"},
+      {id:"n10",type:"loganalytics",label:"Storefront Diagnostics Workspace",techName:"log-ecom-prod-001",wafPillar:"OE"}
     ],
     edges:[
       {from:"n1",to:"n2",label:"HTTPS/443",style:"solid"},
@@ -98,75 +104,65 @@ const DEMOS={
       {from:"n3",to:"n6",label:"Pull HTTPS",style:"solid"},
       {from:"n3",to:"n7",label:"Managed Identity",style:"dashed"},
       {from:"n3",to:"n8",label:"Telemetry",style:"dashed"},
-      {from:"n5",to:"n3",label:"Micro-segment",style:"dashed"}
+      {from:"n5",to:"n3",label:"Micro-segment",style:"dashed"},
+      {from:"n8",to:"n9",label:"Metrics",style:"dashed"},
+      {from:"n9",to:"n10",label:"Logs",style:"dashed"}
     ]
   },
-  eventdriven:{title:"Event-Driven Microservices",
+  eventdriven:{title:"Tailwind Retail \u2014 Real-Time Order Processing",
     groups:[
-      {id:"g1",type:"rg",label:"rg-event-driven-001",children:["g2","g3","g4"]},
-      {id:"g2",type:"custom",label:"Ingestion Layer",children:["n3","n4"]},
-      {id:"g3",type:"custom",label:"Processing Layer",children:["n5","n6","n7"]},
-      {id:"g4",type:"custom",label:"Storage Layer",children:["n8","n9"]}
+      {id:"g1",type:"rg",label:"rg-tailwind-orders-prod",children:["g2","g3","g4"]},
+      {id:"g2",type:"custom",label:"Ingestion Layer",children:["n2","n3"]},
+      {id:"g3",type:"custom",label:"Processing Layer",children:["n4","n5"]},
+      {id:"g4",type:"custom",label:"Storage Layer",children:["n6","n7"]}
     ],
     nodes:[
-      {id:"n1",type:"apim",label:"API Gateway",techName:"apim-gateway-001",wafPillar:"SE"},
-      {id:"n2",type:"appinsights",label:"Observability",techName:"appi-eventsvc-001",wafPillar:"OE"},
-      {id:"n3",type:"eventhub",label:"Event Stream",techName:"evh-events-001",wafPillar:"RE"},
-      {id:"n4",type:"servicebus",label:"Command Bus",techName:"sb-commands-001",wafPillar:"RE"},
-      {id:"n5",type:"functions",label:"Event Processor",techName:"func-processor-001",wafPillar:"PE"},
-      {id:"n6",type:"functions",label:"Command Handler",techName:"func-handler-001",wafPillar:"PE"},
-      {id:"n7",type:"streamanalytics",label:"Real-time Analytics",techName:"asa-realtime-001",wafPillar:"PE"},
-      {id:"n8",type:"cosmos",label:"State Store",techName:"cosmos-state-001",wafPillar:"RE"},
-      {id:"n9",type:"storage",label:"Cold Archive",techName:"st-archive-001",wafPillar:"CO"}
+      {id:"n1",type:"apim",label:"Partner & Mobile API Gateway",techName:"apim-orders-prod-001",wafPillar:"SE"},
+      {id:"n2",type:"eventhub",label:"Order Event Stream",techName:"evh-orders-prod-001",wafPillar:"RE"},
+      {id:"n3",type:"servicebus",label:"Fulfillment Command Queue",techName:"sb-fulfill-prod-001",wafPillar:"RE"},
+      {id:"n4",type:"functions",label:"Inventory Reservation Engine",techName:"func-inventory-prod-001",wafPillar:"PE"},
+      {id:"n5",type:"streamanalytics",label:"Live Revenue Analytics",techName:"asa-revenue-prod-001",wafPillar:"PE"},
+      {id:"n6",type:"cosmos",label:"Order State Store",techName:"cosmos-orders-prod-001",wafPillar:"RE"},
+      {id:"n7",type:"storage",label:"Receipt & Invoice Archive",techName:"st-receipts-prod-001",wafPillar:"CO"}
     ],
     edges:[
-      {from:"n1",to:"n3",label:"Publish AMQP",style:"solid"},
-      {from:"n1",to:"n4",label:"Route AMQP",style:"solid"},
-      {from:"n3",to:"n5",label:"Trigger",style:"solid"},
-      {from:"n4",to:"n6",label:"Trigger",style:"solid"},
-      {from:"n5",to:"n8",label:"Write",style:"solid"},
-      {from:"n6",to:"n8",label:"Write",style:"solid"},
-      {from:"n7",to:"n3",label:"Query",style:"solid"},
-      {from:"n7",to:"n9",label:"Archive",style:"solid"},
-      {from:"n1",to:"n2",label:"Telemetry",style:"dashed"},
-      {from:"n5",to:"n2",label:"Metrics",style:"dashed"}
+      {from:"n1",to:"n2",label:"Publish AMQP",style:"solid"},
+      {from:"n1",to:"n3",label:"Route AMQP",style:"solid"},
+      {from:"n2",to:"n4",label:"Trigger",style:"solid"},
+      {from:"n3",to:"n4",label:"Trigger",style:"solid"},
+      {from:"n4",to:"n6",label:"Write",style:"solid"},
+      {from:"n5",to:"n2",label:"Query",style:"solid"},
+      {from:"n5",to:"n7",label:"Archive",style:"solid"},
+      {from:"n4",to:"n5",label:"Metrics",style:"dashed"}
     ]
   },
-  zerotrust:{title:"Zero-Trust Network Architecture",
+  zerotrust:{title:"Woodgrove Financial \u2014 Zero-Trust Trading",
     groups:[
       {id:"g1",type:"custom",label:"Identity Perimeter",children:["n1","n2"]},
       {id:"g2",type:"region",label:"East US",children:["g3","g4"]},
       {id:"g3",type:"vnet_grp",label:"vnet-zerotrust-001 (10.0.0.0/16)",children:["g5","g6"]},
-      {id:"g4",type:"rg",label:"rg-security-platform",children:["n9","n10","n11","n12"]},
+      {id:"g4",type:"rg",label:"rg-security-platform",children:["n7","n8"]},
       {id:"g5",type:"subnet_grp",label:"snet-dmz (10.0.1.0/24)",children:["n3","n4"]},
-      {id:"g6",type:"subnet_grp",label:"snet-app (10.0.2.0/24)",children:["n5","n6","n7","n8"]}
+      {id:"g6",type:"subnet_grp",label:"snet-app (10.0.2.0/24)",children:["n5","n6"]}
     ],
     nodes:[
-      {id:"n1",type:"entra",label:"Identity Provider",techName:"entra-tenant-001",wafPillar:"SE"},
-      {id:"n2",type:"condaccess",label:"Access Policies",techName:"ca-policy-001",wafPillar:"SE"},
-      {id:"n3",type:"appgw",label:"WAF Ingress",techName:"agw-waf-001",wafPillar:"SE"},
-      {id:"n4",type:"nsg",label:"DMZ Firewall",techName:"nsg-dmz-001",wafPillar:"SE"},
-      {id:"n5",type:"aks",label:"App Cluster",techName:"aks-apps-001",wafPillar:"RE"},
-      {id:"n6",type:"functions",label:"API Functions",techName:"func-api-001",wafPillar:"PE"},
-      {id:"n7",type:"keyvault",label:"App Secrets",techName:"kv-secrets-001",wafPillar:"SE"},
-      {id:"n8",type:"sqldb",label:"Private Database",techName:"sql-private-001",wafPillar:"RE"},
-      {id:"n9",type:"sentinel",label:"SIEM",techName:"siem-sentinel-001",wafPillar:"SE"},
-      {id:"n10",type:"monitor",label:"Monitoring",techName:"mon-platform-001",wafPillar:"OE"},
-      {id:"n11",type:"loganalytics",label:"Security Logs",techName:"log-security-001",wafPillar:"OE"},
-      {id:"n12",type:"keyvault",label:"Platform Secrets",techName:"kv-platform-001",wafPillar:"SE"}
+      {id:"n1",type:"entra",label:"Corporate Identity Authority",techName:"id-woodgrove-prod-001",wafPillar:"SE"},
+      {id:"n2",type:"condaccess",label:"Adaptive Access Policies",techName:"ca-woodgrove-prod-001",wafPillar:"SE"},
+      {id:"n3",type:"appgw",label:"Trading Portal Shield",techName:"agw-trading-prod-001",wafPillar:"SE"},
+      {id:"n4",type:"nsg",label:"Workload Micro-Perimeter",techName:"nsg-trading-prod-001",wafPillar:"SE"},
+      {id:"n5",type:"aks",label:"Trade Execution Engine",techName:"aks-trading-prod-001",wafPillar:"RE"},
+      {id:"n6",type:"keyvault",label:"HSM-Backed Credential Vault",techName:"kv-trading-prod-001",wafPillar:"SE"},
+      {id:"n7",type:"sentinel",label:"Threat Intelligence Center",techName:"sentinel-soc-prod-001",wafPillar:"SE"},
+      {id:"n8",type:"monitor",label:"Regulatory Audit Telemetry",techName:"log-compliance-prod-001",wafPillar:"OE"}
     ],
     edges:[
       {from:"n1",to:"n2",label:"Identity Policy",style:"dashed"},
       {from:"n2",to:"n3",label:"Authorized",style:"solid"},
       {from:"n3",to:"n5",label:"WAF Filtered",style:"solid"},
-      {from:"n3",to:"n6",label:"WAF Filtered",style:"solid"},
       {from:"n4",to:"n5",label:"Micro-segment",style:"solid"},
-      {from:"n5",to:"n7",label:"Private Link",style:"dashed"},
-      {from:"n5",to:"n8",label:"Private Link",style:"dashed"},
-      {from:"n6",to:"n12",label:"Secrets",style:"dashed"},
-      {from:"n3",to:"n9",label:"WAF Logs",style:"dashed"},
-      {from:"n9",to:"n10",label:"Security Events",style:"solid"},
-      {from:"n10",to:"n11",label:"Logs",style:"dashed"}
+      {from:"n5",to:"n6",label:"Private Link",style:"dashed"},
+      {from:"n3",to:"n7",label:"WAF Logs",style:"dashed"},
+      {from:"n7",to:"n8",label:"Security Events",style:"solid"}
     ]
   },
 };
@@ -611,7 +607,7 @@ Architecture: ${input.trim()}`;
       <div style={{display:"flex",minHeight:"calc(100vh - 45px)"}}>
         {isMobile&&drawerOpen&&<div onClick={()=>setDrawerOpen(false)} style={{position:"fixed",inset:0,top:45,background:"rgba(0,0,0,.5)",zIndex:40}}/>}
         <aside style={{width:isMobile?"85vw":280,position:isMobile?"fixed":"relative",left:isMobile?(drawerOpen?0:"-100%"):0,top:isMobile?45:0,height:isMobile?"calc(100vh-45px)":"auto",zIndex:isMobile?50:1,transition:"left .3s",borderRight:`1px solid ${T.bdr}`,padding:10,display:"flex",flexDirection:"column",gap:7,overflowY:"auto",flexShrink:0,background:T.srf}}>
-          <div><label style={lbl(T)}>EXAMPLES</label><div style={{display:"flex",gap:3,flexWrap:"wrap"}}>{[["hubspoke","Hub-Spoke"],["aksbaseline","AKS Baseline"],["eventdriven","Event-Driven"],["zerotrust","Zero-Trust"]].map(([k,l])=> <button key={k} onClick={()=>setActiveEx(k)} style={{padding:"4px 8px",borderRadius:4,border:`1px solid ${activeEx===k?"#0078D4":T.bdr}`,background:activeEx===k?"rgba(0,120,212,.1)":"transparent",color:activeEx===k?"#0078D4":T.ts,fontSize:9,cursor:"pointer"}}>{l}</button>)}</div></div>
+          <div><label style={lbl(T)}>EXAMPLES</label><div style={{display:"flex",gap:3,flexWrap:"wrap"}}>{[["hubspoke","Contoso Network"],["aksbaseline","Northwind Store"],["eventdriven","Tailwind Orders"],["zerotrust","Woodgrove Finance"]].map(([k,l])=> <button key={k} onClick={()=>setActiveEx(k)} style={{padding:"4px 8px",borderRadius:4,border:`1px solid ${activeEx===k?"#0078D4":T.bdr}`,background:activeEx===k?"rgba(0,120,212,.1)":"transparent",color:activeEx===k?"#0078D4":T.ts,fontSize:9,cursor:"pointer"}}>{l}</button>)}</div></div>
           {activeEx&&<button onClick={()=>loadDemo(activeEx)} style={{padding:9,borderRadius:5,border:"none",background:"linear-gradient(135deg,#0078D4,#5C2D91)",color:"white",fontSize:11,fontWeight:600,cursor:"pointer"}}>▶ Load Demo</button>}
           <div><label style={lbl(T)}>DESCRIBE OR PASTE JSON</label><textarea value={input} onChange={e=>setInput(e.target.value)} placeholder={"Describe your architecture...\nor paste diagram JSON"} style={{width:"100%",minHeight:90,padding:8,borderRadius:4,border:`1px solid ${T.bdr}`,background:T.bg,color:T.text,fontSize:10,fontFamily:"Consolas,monospace",lineHeight:1.5,resize:"vertical",outline:"none",boxSizing:"border-box"}}/>
             <div style={{display:"flex",gap:4,marginTop:4}}>
