@@ -312,7 +312,7 @@ function autoLayout(data) {
 
   return {
     title:data.title,
-    nodes:nds.map(n=>({id:n.id,type:n.type,label:n.label,x:nPos[n.id]?.x??300,y:nPos[n.id]?.y??300})),
+    nodes:nds.map(n=>({id:n.id,type:n.type,label:n.label,...(n.techName?{techName:n.techName}:{}),...(n.wafPillar?{wafPillar:n.wafPillar}:{}),x:nPos[n.id]?.x??300,y:nPos[n.id]?.y??300})),
     groups:sortedGrps.filter(g=>GT[g.type]&&gPos[g.id]).map(g=>{
       const s=gSize[g.id]; const p=gPos[g.id]; const tpl=GT[g.type]||GT.rg;
       const d = depth[g.id]||0;
