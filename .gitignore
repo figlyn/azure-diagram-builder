@@ -4,3 +4,8 @@ dist/
 *.log
 .env
 .env.local
+.claude/skills/microsoft-skills/
+.claude/skills/cloudflare-skills/
+.claude/skills/trailofbits-skills/
+.claude/skills/anthropic-skills/
+.claude/skills/anthropic-claude-code/
