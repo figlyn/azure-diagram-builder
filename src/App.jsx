@@ -29,6 +29,19 @@ const WAF_PILLARS={
   OE:{label:"OE",color:"#a855f7",name:"Operational Excellence"},
   PE:{label:"PE",color:"#f97316",name:"Performance Efficiency"},
 };
+// CAF naming conventions: https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ready/azure-best-practices/resource-naming
+const CAF_PREFIXES={vm:"vm",vmss:"vmss",aks:"aks",appservice:"app",functions:"func",container:"ci",vnet:"vnet",nsg:"nsg",lb:"lbe",appgw:"agw",frontdoor:"afd",firewall:"afw",dns:"dnsz",expressroute:"erc",vpngw:"vpng",cdn:"cdnp",sqldb:"sql",cosmos:"cosmos",redis:"redis",storage:"st",synapse:"syn",datafactory:"adf",cognitive:"cog",mlworkspace:"mlw",eventhub:"evh",streamanalytics:"asa",bot:"bot",entra:"id",keyvault:"kv",sentinel:"siem",condaccess:"ca",servicebus:"sb",logicapp:"logic",apim:"apim",eventgrid:"evgt",signalr:"sigr",devops:"ado",acr:"cr",monitor:"mon",appinsights:"appi",loganalytics:"log"};
+// Storage and ACR use no hyphens (alphanumeric only per Azure naming rules)
+const CAF_NOHYPHEN=new Set(["storage","acr"]);
+const _cafCounters={};
+const suggestName=(type)=>{_cafCounters[type]=(_cafCounters[type]||0)+1;const n=String(_cafCounters[type]).padStart(3,"0");const p=CAF_PREFIXES[type]||type.slice(0,4);return CAF_NOHYPHEN.has(type)?`${p}workload${n}`:`${p}-workload-prod-${n}`;};
+const cafCompliant=(type,label)=>{const p=CAF_PREFIXES[type];if(!p)return true;const lo=label.toLowerCase();return CAF_NOHYPHEN.has(type)?lo.startsWith(p)&&!/[-]/.test(lo):lo.startsWith(p+"-");};
+
+// Azure resource hierarchy rules (CAF: Management Group > Subscription > RG > VNet > Subnet)
+// Defines which group types are valid children inside each parent group type
+const HIER_GROUPS={region:new Set(["rg","vnet_grp","onprem","custom","aks_grp"]),rg:new Set(["vnet_grp","subnet_grp","aks_grp","custom"]),vnet_grp:new Set(["subnet_grp","custom"]),subnet_grp:new Set(["aks_grp","custom"]),aks_grp:new Set(["custom"]),onprem:new Set(["custom"]),custom:new Set(["rg","vnet_grp","subnet_grp","aks_grp","region","onprem","custom"])};
+// Node types restricted in certain groups (undefined = all types allowed)
+const HIER_NODES={subnet_grp:new Set(["vm","vmss","aks","appservice","functions","container","nsg","lb","appgw"]),aks_grp:new Set(["container","acr","monitor","appinsights","loganalytics"])};
 
 const DEMOS={
   hubspoke:{title:"Hub-Spoke Network Topology",
@@ -395,6 +408,8 @@ export default function App(){
 
   const [loading,setLoading]=useState(false);
   const [genError,setGenError]=useState(null);
+  const [nameViolations,setNameViolations]=useState(new Set());
+  const [hierViolations,setHierViolations]=useState(new Set());
 
   const SERVICE_TYPES = Object.keys(ALL).join(", ");
   const generate = async () => {
@@ -409,6 +424,20 @@ Node types: ${SERVICE_TYPES}
 Group types: rg, vnet_grp, subnet_grp, aks_grp, region, onprem, custom
 Groups can nest: children[] can contain node IDs and group IDs.
 Use dashed edges for monitoring, solid for data. 8-20 nodes, 2-6 groups.
+
+AZURE RESOURCE HIERARCHY (must be respected):
+- region contains: rg, vnet_grp, onprem
+- rg (Resource Group) contains: nodes, vnet_grp, aks_grp
+- vnet_grp (Virtual Network) contains: subnet_grp only
+- subnet_grp (Subnet) contains: vm, vmss, appservice, functions, container, nsg, lb nodes only
+- aks_grp (AKS Cluster) contains: container, acr nodes only
+- Do NOT put a vnet_grp inside a subnet_grp, or an rg inside a vnet_grp
+
+CAF NAMING CONVENTIONS (Microsoft Cloud Adoption Framework):
+Use these prefixes for node labels: vm-<workload>-<env>-<###>, vmss-<w>-<e>, aks-<w>-<e>, app-<w>-<e>, func-<w>-<e>, ci-<w>-<e>, vnet-<w>-<e>-<region>, nsg-<purpose>, lbe-<w>-<e>, agw-<w>-<e>, afd-<w>-<e>, afw-<w>-<e>, sql-<w>-<e>, cosmos-<w>-<e>, redis-<w>-<e>, st<w><e> (no hyphens for storage), kv-<w>-<e>, appi-<w>-<e>, log-<w>-<e>, sb-<w>-<e>, apim-<w>-<e>
+Use rg-<workload>-<env>-<region> for Resource Group labels.
+Use vnet-<workload>-<env>-<region> for VNet labels. Use snet-<purpose> for Subnet labels.
+Example: rg-networking-prod-eastus, vnet-hub-prod-eastus, snet-frontend, vm-web-prod-001
 
 Architecture: ${input.trim()}`;
 
@@ -444,7 +473,7 @@ Architecture: ${input.trim()}`;
 
   const loadDemo=(k)=>{const d=DEMOS[k];if(!d)return;const r=autoLayout(d);pushHistory();setTitle(r.title);setNodes(r.nodes);setGroups(r.groups);setEdges(r.edges);setSel(null);setHasData(true);if(isMobile)setDrawerOpen(false);setTimeout(()=>zoomToFit(r.nodes,r.groups),100);};
   const loadJson=()=>{try{const si=input.indexOf("{"),ei=input.lastIndexOf("}");if(si===-1)throw new Error("No JSON");const p=JSON.parse(input.slice(si,ei+1));p.nodes=(p.nodes||[]).filter(n=>ALL[n.type]);p.groups=(p.groups||[]).filter(g=>GT[g.type]);const ids=new Set(p.nodes.map(n=>n.id));p.edges=(p.edges||[]).filter(e=>ids.has(e.from)&&ids.has(e.to));const r=autoLayout(p);pushHistory();setTitle(r.title||"Custom");setNodes(r.nodes);setGroups(r.groups);setEdges(r.edges);setSel(null);setHasData(true);if(isMobile)setDrawerOpen(false);setTimeout(()=>zoomToFit(r.nodes,r.groups),100);}catch(e){alert("Invalid JSON: "+e.message);}};
-  const addNode=useCallback(t=>{const id=`n${nid.current++}`;pushHistory();setNodes(p=>[...p,{id,type:t,label:ALL[t].name,x:400+(Math.random()-.5)*200-pan.x/zoom,y:300+(Math.random()-.5)*200-pan.y/zoom}]);setHasData(true);setEditMode(true);},[pan,zoom,pushHistory]);
+  const addNode=useCallback(t=>{const id=`n${nid.current++}`;pushHistory();setNodes(p=>[...p,{id,type:t,label:suggestName(t),x:400+(Math.random()-.5)*200-pan.x/zoom,y:300+(Math.random()-.5)*200-pan.y/zoom}]);setHasData(true);setEditMode(true);},[pan,zoom,pushHistory]);
   const addGroup=useCallback(tpl=>{const id=`g${gid.current++}`;pushHistory();setGroups(p=>[...p,{id,type:tpl.type,label:tpl.name,x:250+(Math.random()-.5)*100-pan.x/zoom,y:180+(Math.random()-.5)*100-pan.y/zoom,w:300,h:220,color:tpl.color,border:tpl.border,dash:tpl.dash}]);setHasData(true);setEditMode(true);},[pan,zoom,pushHistory]);
   // Re-layout: reconstruct children from current geometry, re-run autoLayout
   const reLayout = useCallback(() => {
@@ -538,6 +567,12 @@ Architecture: ${input.trim()}`;
   }}else if(rsz){e.preventDefault?.();setGroups(p=>p.map(g=>g.id===rsz.id?{...g,w:Math.max(160,rsz.sw+(x-rsz.sx)/zoom),h:Math.max(100,rsz.sh+(y-rsz.sy)/zoom)}:g));}else if(panSt){setPan({x:x-panSt.sx,y:y-panSt.sy});}},[drag,rsz,panSt,toSvg,zoom,groups]);
   const onUp=useCallback(()=>{setDrag(null);setRsz(null);setPanSt(null);pinchRef.current=null;},[]);
   const showToast=useCallback(msg=>{setToast(msg);setTimeout(()=>setToast(null),3000);},[]);
+
+  const validateNames=useCallback(()=>{const v=new Set();nodes.forEach(n=>{if(!cafCompliant(n.type,n.label))v.add(n.id);});setNameViolations(v);if(v.size===0)showToast("All names are CAF-compliant ✓");else showToast(`${v.size} naming violation${v.size>1?"s":""} — see ⚠ nodes`);},[nodes,showToast]);
+
+  const checkHierarchy=useCallback(()=>{const v=new Set();const nodeMap=new Map(nodes.map(n=>[n.id,n]));const groupMap=new Map(groups.map(g=>[g.id,g]));groups.forEach(g=>{const allowedG=HIER_GROUPS[g.type];const allowedN=HIER_NODES[g.type];(g.children||[]).forEach(cid=>{const cg=groupMap.get(cid);if(cg&&allowedG&&!allowedG.has(cg.type)){v.add(cid);v.add(g.id);}const cn=nodeMap.get(cid);if(cn&&allowedN&&!allowedN.has(cn.type)){v.add(cid);v.add(g.id);}});});setHierViolations(v);if(v.size===0)showToast("Azure hierarchy is valid ✓");else showToast(`${v.size} hierarchy violation${v.size>1?"s":""} — see ⚠ nodes`);},[nodes,groups,showToast]);
+
+  const runValidate=useCallback(()=>{validateNames();checkHierarchy();},[validateNames,checkHierarchy]);
   useEffect(()=>{try{const s=localStorage.getItem("azure-diagram-state");if(s){const d=JSON.parse(s);if(d.nodes)setNodes(d.nodes);if(d.groups)setGroups(d.groups);if(d.edges)setEdges(d.edges);if(d.title)setTitle(d.title);if(d.zoom)setZoom(d.zoom);if(d.pan)setPan(d.pan);if(d.nodes?.length||d.groups?.length)setHasData(true);}}catch(e){}},[]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(()=>{if(!hasData)return;clearTimeout(saveTimerRef.current);saveTimerRef.current=setTimeout(()=>{try{localStorage.setItem("azure-diagram-state",JSON.stringify({nodes,groups,edges,title,zoom,pan}));}catch(e){}},500);},[nodes,groups,edges,title,zoom,pan,hasData]);
   const onCanvasDown=e=>{if(e.touches&&e.touches.length===2){const dx=e.touches[0].clientX-e.touches[1].clientX,dy=e.touches[0].clientY-e.touches[1].clientY;pinchRef.current={dist:Math.hypot(dx,dy),zoom};return;}if(e.target===svgRef.current||e.target.closest(".cbg")){setSel(null);setConnectFrom(null);setPanSt({sx:px(e)-pan.x,sy:py(e)-pan.y});}};
@@ -565,6 +600,7 @@ Architecture: ${input.trim()}`;
           <button onClick={()=>setTheme(t=>t==="dark"?"light":"dark")} style={{padding:"5px 10px",background:"transparent",border:`1px solid ${T.bdr}`,borderRadius:5,color:T.ts,fontSize:10,cursor:"pointer"}}>{theme==="dark"?"☀":"●"}</button>
           {hasData&&<button onClick={reLayout} style={{padding:"5px 10px",background:"transparent",border:`1px solid ${T.bdr}`,borderRadius:5,color:T.ts,fontSize:10,cursor:"pointer"}}>⟲ Layout</button>}
           {hasData&&<button onClick={()=>zoomToFit(nodes,groups)} style={{padding:"5px 10px",background:"transparent",border:`1px solid ${T.bdr}`,borderRadius:5,color:T.ts,fontSize:10,cursor:"pointer"}}>⊙ Fit</button>}
+          {hasData&&<button onClick={runValidate} title="Validate CAF names and Azure hierarchy" style={{padding:"5px 10px",background:(nameViolations.size||hierViolations.size)?"rgba(245,158,11,.1)":"transparent",border:`1px solid ${(nameViolations.size||hierViolations.size)?"#f59e0b":T.bdr}`,borderRadius:5,color:(nameViolations.size||hierViolations.size)?"#f59e0b":T.ts,fontSize:10,cursor:"pointer"}}>⚠ Validate</button>}
           {hasData&&<button onClick={handleExport} style={{padding:"5px 10px",background:"transparent",border:`1px solid ${T.bdr}`,borderRadius:5,color:T.ts,fontSize:10,cursor:"pointer"}}>↓ SVG</button>}
           {hasData&&<button onClick={handleExportPng} style={{padding:"5px 10px",background:"transparent",border:`1px solid ${T.bdr}`,borderRadius:5,color:T.ts,fontSize:10,cursor:"pointer"}}>↓ PNG</button>}
         </div>
@@ -596,7 +632,7 @@ Architecture: ${input.trim()}`;
             <g className="cbg"><rect width="100%" height="100%" fill={T.bg}/>{grid&&<rect width="100%" height="100%" fill="url(#grd)"/>}</g>
             <g transform={`translate(${pan.x},${pan.y}) scale(${zoom})`}>
               {groups.map(g=>{const isSel=sel?.kind==="group"&&sel.id===g.id;const d=g.depth||0;const bw=isSel?2.5:Math.max(1,2-d*0.4);const fillOp=Math.max(4,10-d*2).toString(16).padStart(2,'0'); return (
-                <g key={g.id}><rect x={g.x} y={g.y} width={g.w} height={g.h} rx={Math.max(6,10-d*2)} fill={g.color+fillOp} stroke={isSel?T.sel:g.border+(d>0?"40":"60")} strokeWidth={bw} strokeDasharray={g.dash?"8 4":"none"} style={{cursor:editMode?(connectFrom?"crosshair":"grab"):"default"}} onMouseDown={e=>onGroupDown(e,g.id)} onTouchStart={e=>onGroupDown(e,g.id)}/><rect x={g.x} y={g.y} width={g.w} height={d>0?24:28} rx={Math.max(6,10-d*2)} fill={g.color+(d>0?"0c":"14")} style={{pointerEvents:"none"}}/><rect x={g.x} y={g.y+(d>0?16:20)} width={g.w} height={8} fill={g.color+(d>0?"0c":"14")} style={{pointerEvents:"none"}}/><text x={g.x+(d>0?8:12)} y={g.y+(d>0?16:18)} fill={g.border} fontSize={d>0?10:11} fontWeight="600" fontFamily="Segoe UI" style={{pointerEvents:"none"}}>{g.label}</text>{editMode&&<><rect x={g.x+g.w-16} y={g.y+g.h-16} width={16} height={16} rx={4} fill="transparent" style={{cursor:"nwse-resize"}} onMouseDown={e=>onResizeDown(e,g.id)} onTouchStart={e=>onResizeDown(e,g.id)}/><path d={`M${g.x+g.w-5} ${g.y+g.h-12}L${g.x+g.w-5} ${g.y+g.h-5}L${g.x+g.w-12} ${g.y+g.h-5}`} fill="none" stroke={g.border+"40"} strokeWidth="1.5" style={{pointerEvents:"none"}}/></>}</g>
+                <g key={g.id}><rect x={g.x} y={g.y} width={g.w} height={g.h} rx={Math.max(6,10-d*2)} fill={g.color+fillOp} stroke={isSel?T.sel:g.border+(d>0?"40":"60")} strokeWidth={bw} strokeDasharray={g.dash?"8 4":"none"} style={{cursor:editMode?(connectFrom?"crosshair":"grab"):"default"}} onMouseDown={e=>onGroupDown(e,g.id)} onTouchStart={e=>onGroupDown(e,g.id)}/><rect x={g.x} y={g.y} width={g.w} height={d>0?24:28} rx={Math.max(6,10-d*2)} fill={g.color+(d>0?"0c":"14")} style={{pointerEvents:"none"}}/><rect x={g.x} y={g.y+(d>0?16:20)} width={g.w} height={8} fill={g.color+(d>0?"0c":"14")} style={{pointerEvents:"none"}}/><text x={g.x+(d>0?8:12)} y={g.y+(d>0?16:18)} fill={g.border} fontSize={d>0?10:11} fontWeight="600" fontFamily="Segoe UI" style={{pointerEvents:"none"}}>{g.label}</text>{hierViolations.has(g.id)&&<g style={{pointerEvents:"none"}}><title>Hierarchy violation</title><circle cx={g.x+g.w-8} cy={g.y+8} r={7} fill="#f59e0b"/><text x={g.x+g.w-8} y={g.y+12} textAnchor="middle" fill="white" fontSize="9" fontWeight="700" fontFamily="Segoe UI">!</text></g>}{editMode&&<><rect x={g.x+g.w-16} y={g.y+g.h-16} width={16} height={16} rx={4} fill="transparent" style={{cursor:"nwse-resize"}} onMouseDown={e=>onResizeDown(e,g.id)} onTouchStart={e=>onResizeDown(e,g.id)}/><path d={`M${g.x+g.w-5} ${g.y+g.h-12}L${g.x+g.w-5} ${g.y+g.h-5}L${g.x+g.w-12} ${g.y+g.h-5}`} fill="none" stroke={g.border+"40"} strokeWidth="1.5" style={{pointerEvents:"none"}}/></>}</g>
               );})}
               {edges.map(edge=>{
                 // Resolve endpoint from nodes or groups
@@ -612,7 +648,7 @@ Architecture: ${input.trim()}`;
                 <g key={edge.id} style={{cursor:"pointer"}} onClick={e=>{e.stopPropagation();setSel({kind:"edge",id:edge.id});}}><path d={p} fill="none" stroke="transparent" strokeWidth="14"/><path d={p} fill="none" stroke={isSel?T.sel:T.tm} strokeWidth={isSel?2.5:1.3} strokeDasharray={edge.style==="dashed"?"6 3":"none"} markerEnd={isSel?"url(#ahS)":"url(#ah)"} opacity={isSel?1:.45}/>{edge.label&&(()=>{const mx=(a.x+b.x)/2,my=(a.y+b.y)/2-10; return <g><rect x={mx-edge.label.length*3.2-5} y={my-9} width={edge.label.length*6.4+10} height={14} rx={7} fill={T.srf} stroke={T.bdr} strokeWidth=".5"/><text x={mx} y={my} textAnchor="middle" fill={isSel?T.sel:T.ts} fontSize="8.5" fontFamily="Consolas,monospace" fontWeight="500">{edge.label}</text></g>;})()}</g>
               );})}
               {nodes.map(nd=>{const s=ALL[nd.type];if(!s)return null;const isSel=sel?.kind==="node"&&sel.id===nd.id;const isCon=connectFrom===nd.id; return (
-                <g key={nd.id} onMouseDown={e=>onNodeDown(e,nd.id)} onTouchStart={e=>onNodeDown(e,nd.id)} style={{cursor:editMode?(connectFrom?"crosshair":"grab"):"default"}}>{(isSel||isCon)&&<rect x={nd.x-32} y={nd.y-32} width={64} height={64} rx={14} fill="none" stroke={isCon?"#f59e0b":T.sel} strokeWidth="2" opacity=".45" strokeDasharray={isCon?"4 2":"none"}/>}<rect x={nd.x-28} y={nd.y-28} width={56} height={56} rx={12} fill={T.nBg} stroke={isSel?T.sel+"80":T.nSt} strokeWidth={isSel?1.5:1}/><image href={ICONS[nd.type]} x={nd.x-14} y={nd.y-14} width={28} height={28} style={{pointerEvents:"none"}}/><text x={nd.x} y={nd.y+40} textAnchor="middle" fill={T.ts} fontSize="9" fontFamily="Segoe UI" fontWeight="500" style={{pointerEvents:"none"}}>{nd.label.length>16?nd.label.slice(0,15)+"…":nd.label}</text>{nd.wafPillar&&WAF_PILLARS[nd.wafPillar]&&<><circle cx={nd.x+24} cy={nd.y-24} r={9} fill={WAF_PILLARS[nd.wafPillar].color} style={{pointerEvents:"none"}}/><text x={nd.x+24} y={nd.y-20} textAnchor="middle" fill="white" fontSize="7" fontFamily="Segoe UI" fontWeight="700" style={{pointerEvents:"none"}}>{nd.wafPillar}</text></>}</g>
+                <g key={nd.id} onMouseDown={e=>onNodeDown(e,nd.id)} onTouchStart={e=>onNodeDown(e,nd.id)} style={{cursor:editMode?(connectFrom?"crosshair":"grab"):"default"}}>{(isSel||isCon)&&<rect x={nd.x-32} y={nd.y-32} width={64} height={64} rx={14} fill="none" stroke={isCon?"#f59e0b":T.sel} strokeWidth="2" opacity=".45" strokeDasharray={isCon?"4 2":"none"}/>}<rect x={nd.x-28} y={nd.y-28} width={56} height={56} rx={12} fill={T.nBg} stroke={isSel?T.sel+"80":T.nSt} strokeWidth={isSel?1.5:1}/><image href={ICONS[nd.type]} x={nd.x-14} y={nd.y-14} width={28} height={28} style={{pointerEvents:"none"}}/><text x={nd.x} y={nd.y+40} textAnchor="middle" fill={T.ts} fontSize="9" fontFamily="Segoe UI" fontWeight="500" style={{pointerEvents:"none"}}>{nd.label.length>16?nd.label.slice(0,15)+"…":nd.label}</text>{nd.wafPillar&&WAF_PILLARS[nd.wafPillar]&&<><circle cx={nd.x+24} cy={nd.y-24} r={9} fill={WAF_PILLARS[nd.wafPillar].color} style={{pointerEvents:"none"}}/><text x={nd.x+24} y={nd.y-20} textAnchor="middle" fill="white" fontSize="7" fontFamily="Segoe UI" fontWeight="700" style={{pointerEvents:"none"}}>{nd.wafPillar}</text></>}{(nameViolations.has(nd.id)||hierViolations.has(nd.id))&&<g style={{pointerEvents:"none"}}><title>{nameViolations.has(nd.id)?"Non-CAF name":""}{ nameViolations.has(nd.id)&&hierViolations.has(nd.id)?"; ":""}{hierViolations.has(nd.id)?"Hierarchy violation":""}</title><circle cx={nd.x-24} cy={nd.y-24} r={7} fill="#f59e0b"/><text x={nd.x-24} y={nd.y-20} textAnchor="middle" fill="white" fontSize="9" fontWeight="700" fontFamily="Segoe UI">!</text></g>}</g>
               );})}
             </g>
             <text x="50%" y="24" textAnchor="middle" fill={T.tf} fontSize="14" fontWeight="600" fontFamily="Segoe UI" letterSpacing=".06em">{title}</text>
