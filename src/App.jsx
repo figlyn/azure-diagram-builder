@@ -358,8 +358,9 @@ function selectPorts(sA, tA) {
   const absDx = Math.abs(dx), absDy = Math.abs(dy);
   // If nodes are on roughly the same row (small dy), route via top/bottom to avoid crossing through nodes
   if (absDy < 60 && absDx > 60) {
-    // Same row — go UP from source, across, then DOWN to target (or vice versa)
-    return { srcPort: 'top', tgtPort: 'top' };
+    // Forward direction (left-to-right flow): go UP and over
+    // Backward direction (right-to-left): go DOWN and under to avoid looping
+    return dx >= 0 ? { srcPort: 'top', tgtPort: 'top' } : { srcPort: 'bottom', tgtPort: 'bottom' };
   }
   // If target is clearly above or below, use vertical ports
   if (absDy > absDx * 0.6) {
@@ -375,7 +376,7 @@ function orthogonalPath(srcPort, tgtPort, sp, tp) {
   // U-shape: both ports on same side (e.g. both top → go up, across, down)
   const sameSide = srcPort === tgtPort;
   if (sameSide) {
-    const clearance = 60;
+    const clearance = 80;
     if (srcPort === 'top' || srcPort === 'bottom') {
       // Vertical U-shape: go up/down, horizontal, back down/up
       const dir = srcPort === 'top' ? -1 : 1;
@@ -732,7 +733,7 @@ Architecture: ${input.trim()}`;
         <main ref={mainRef} style={{flex:1,position:"relative",overflow:"hidden"}}>
           {!hasData&&<div style={{position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",textAlign:"center",opacity:.5,pointerEvents:"none"}}><div style={{fontSize:40,marginBottom:10,opacity:.3}}>☁</div><p style={{fontSize:13,fontWeight:600,color:T.ts,margin:"0 0 6px"}}>Azure Deployment Diagram</p><p style={{fontSize:10,color:T.tm,lineHeight:1.6}}>Pick an example → Load<br/>Or describe to Claude, paste JSON, click Load</p></div>}
           {hasData&&<svg ref={svgRef} width="100%" height="100%" onMouseDown={onCanvasDown} onTouchStart={onCanvasDown} onWheel={onWheel} style={{cursor:panSt?"grabbing":"default",touchAction:"none",position:"absolute",inset:0}}>
-            <defs><marker id="ah" markerWidth="12" markerHeight="9" refX="11" refY="4.5" orient="auto"><polygon points="0 0,12 4.5,0 9" fill={T.ts}/></marker><marker id="ahS" markerWidth="12" markerHeight="9" refX="11" refY="4.5" orient="auto"><polygon points="0 0,12 4.5,0 9" fill={T.sel}/></marker><pattern id="grd" width="20" height="20" patternUnits="userSpaceOnUse"><circle cx="10" cy="10" r=".4" fill={theme==="dark"?"#1a2036":"#dde4ed"}/></pattern></defs>
+            <defs><marker id="ah" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto"><polygon points="0 0,7 2.5,0 5" fill={T.ts}/></marker><marker id="ahS" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto"><polygon points="0 0,7 2.5,0 5" fill={T.sel}/></marker><pattern id="grd" width="20" height="20" patternUnits="userSpaceOnUse"><circle cx="10" cy="10" r=".4" fill={theme==="dark"?"#1a2036":"#dde4ed"}/></pattern></defs>
             <g className="cbg"><rect width="100%" height="100%" fill={T.bg}/>{grid&&<rect width="100%" height="100%" fill="url(#grd)"/>}</g>
             <g transform={`translate(${pan.x},${pan.y}) scale(${zoom})`}>
               {groups.map(g=>{const isSel=sel?.kind==="group"&&sel.id===g.id;const d=g.depth||0;const bw=isSel?2.5:Math.max(1,2-d*0.4);const fillOp=Math.max(4,10-d*2).toString(16).padStart(2,'0'); return (
@@ -772,7 +773,7 @@ Architecture: ${input.trim()}`;
                   return (
                     <g key={edge.id} style={{cursor:"pointer"}} onClick={e=>{e.stopPropagation();setSel({kind:"edge",id:edge.id});}}>
                       <path d={p} fill="none" stroke="transparent" strokeWidth="14"/>
-                      <path d={p} fill="none" stroke={isSel?T.sel:T.ts} strokeWidth={isSel?3.5:2.5} strokeDasharray={edge.style==="dashed"?"6 3":"none"} markerEnd={isSel?"url(#ahS)":"url(#ah)"} opacity={isSel?1:.7}/>
+                      <path d={p} fill="none" stroke={isSel?T.sel:T.ts} strokeWidth={isSel?2.5:1.5} strokeDasharray={edge.style==="dashed"?"6 3":"none"} markerEnd={isSel?"url(#ahS)":"url(#ah)"} opacity={isSel?1:.7}/>
                       {edge.label&&<g><rect x={lp.x-edge.label.length*3.5-8} y={lp.y-10} width={edge.label.length*7+16} height={18} rx={9} fill={T.srf} stroke={T.ts} strokeWidth="1" style={{filter:"drop-shadow(0 1px 3px rgba(0,0,0,.4))"}}/><text x={lp.x} y={lp.y+4} textAnchor="middle" fill={isSel?T.sel:T.ts} fontSize="10" fontFamily="Consolas,monospace" fontWeight="600">{edge.label}</text></g>}
                     </g>
                   );
