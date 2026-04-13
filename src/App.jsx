@@ -323,28 +323,93 @@ function autoLayout(data) {
   };
 }
 
-// ===== EDGE ROUTING (orthogonal-ish with bezier) =====
-function edgePath(a,b) {
-  const dx=b.x-a.x,dy=b.y-a.y,d=Math.sqrt(dx*dx+dy*dy);
-  if(d<1) return `M${a.x},${a.y}`;
-  const absDx=Math.abs(dx),absDy=Math.abs(dy);
-  const curve=Math.min(50,d*0.25);
-  const nx=dx/d,ny=dy/d;
-  const oA=a.r||30, oB=b.r||30;
-  const sx=a.x+nx*oA,sy=a.y+ny*oA,ex=b.x-nx*oB,ey=b.y-ny*oB;
-  // Prefer horizontal/vertical routing
-  if(absDx>absDy*1.5){
-    // Mostly horizontal
-    const midX=(sx+ex)/2;
-    return `M${sx},${sy} C${midX},${sy} ${midX},${ey} ${ex},${ey}`;
-  } else if(absDy>absDx*1.5){
-    // Mostly vertical
-    const midY=(sy+ey)/2;
-    return `M${sx},${sy} C${sx},${midY} ${ex},${midY} ${ex},${ey}`;
+// ===== ORTHOGONAL EDGE ROUTING (Manhattan paths with rounded corners) =====
+const EDGE_CR = 8; // corner radius
+
+function nodePorts(node) {
+  return {
+    top:    { x: node.x,      y: node.y - 28 },
+    right:  { x: node.x + 28, y: node.y      },
+    bottom: { x: node.x,      y: node.y + 28 },
+    left:   { x: node.x - 28, y: node.y      },
+  };
+}
+
+function groupPorts(group) {
+  const cx = group.x + group.w / 2, cy = group.y + group.h / 2;
+  return {
+    top:    { x: cx,                y: group.y            },
+    right:  { x: group.x + group.w, y: cy                 },
+    bottom: { x: cx,                y: group.y + group.h  },
+    left:   { x: group.x,          y: cy                  },
+  };
+}
+
+function resolveAnchor(id, nodes, groups) {
+  const nd = nodes.find(n => n.id === id);
+  if (nd) return { cx: nd.x, cy: nd.y, ports: nodePorts(nd) };
+  const g = groups.find(g => g.id === id);
+  if (g) return { cx: g.x + g.w / 2, cy: g.y + g.h / 2, ports: groupPorts(g) };
+  return null;
+}
+
+function selectPorts(sA, tA) {
+  const dx = tA.cx - sA.cx, dy = tA.cy - sA.cy;
+  if (Math.abs(dx) >= Math.abs(dy) * 0.8) {
+    return dx >= 0 ? { srcPort: 'right', tgtPort: 'left' } : { srcPort: 'left', tgtPort: 'right' };
   }
-  // Diagonal - slight curve
-  const mx=(sx+ex)/2-ny*curve*0.4,my=(sy+ey)/2+nx*curve*0.4;
-  return `M${sx},${sy} Q${mx},${my} ${ex},${ey}`;
+  return dy >= 0 ? { srcPort: 'bottom', tgtPort: 'top' } : { srcPort: 'top', tgtPort: 'bottom' };
+}
+
+function orthogonalPath(srcPort, tgtPort, sp, tp) {
+  const r = EDGE_CR;
+  const segs = [`M ${sp.x},${sp.y}`];
+  const horiz = srcPort === 'right' || srcPort === 'left';
+  const parallel = (srcPort==='right'&&tgtPort==='left')||(srcPort==='left'&&tgtPort==='right')||(srcPort==='bottom'&&tgtPort==='top')||(srcPort==='top'&&tgtPort==='bottom');
+  if (parallel && horiz) {
+    const midX = (sp.x + tp.x) / 2, dy = tp.y - sp.y;
+    if (Math.abs(dy) < 1) { segs.push(`H ${tp.x}`); }
+    else {
+      const sy = dy > 0 ? 1 : -1;
+      segs.push(`H ${midX-r}`,`Q ${midX},${sp.y} ${midX},${sp.y+sy*r}`,`V ${tp.y-sy*r}`,`Q ${midX},${tp.y} ${midX+(tp.x>sp.x?r:-r)},${tp.y}`,`H ${tp.x}`);
+    }
+  } else if (parallel && !horiz) {
+    const midY = (sp.y + tp.y) / 2, dx = tp.x - sp.x;
+    if (Math.abs(dx) < 1) { segs.push(`V ${tp.y}`); }
+    else {
+      const sx = dx > 0 ? 1 : -1;
+      segs.push(`V ${midY-r}`,`Q ${sp.x},${midY} ${sp.x+sx*r},${midY}`,`H ${tp.x-sx*r}`,`Q ${tp.x},${midY} ${tp.x},${midY+(tp.y>sp.y?r:-r)}`,`V ${tp.y}`);
+    }
+  } else if (horiz) {
+    const sy = tp.y > sp.y ? 1 : -1;
+    if (Math.abs(tp.y - sp.y) > r * 2) { segs.push(`H ${tp.x}`,`Q ${tp.x},${sp.y} ${tp.x},${sp.y+sy*r}`,`V ${tp.y}`); }
+    else { segs.push(`H ${tp.x}`,`V ${tp.y}`); }
+  } else {
+    const sx = tp.x > sp.x ? 1 : -1;
+    if (Math.abs(tp.x - sp.x) > r * 2) { segs.push(`V ${tp.y}`,`Q ${sp.x},${tp.y} ${sp.x+sx*r},${tp.y}`,`H ${tp.x}`); }
+    else { segs.push(`V ${tp.y}`,`H ${tp.x}`); }
+  }
+  return segs.join(' ');
+}
+
+function edgeLabelXY(srcPort, tgtPort, sp, tp) {
+  const horiz = srcPort === 'right' || srcPort === 'left';
+  const parallel = (srcPort==='right'&&tgtPort==='left')||(srcPort==='left'&&tgtPort==='right')||(srcPort==='bottom'&&tgtPort==='top')||(srcPort==='top'&&tgtPort==='bottom');
+  if (parallel && horiz) {
+    if (Math.abs(tp.y - sp.y) < 1) return { x: (sp.x+tp.x)/2, y: sp.y-12 };
+    return { x: (sp.x+tp.x)/2+12, y: (sp.y+tp.y)/2 };
+  } else if (parallel && !horiz) {
+    if (Math.abs(tp.x - sp.x) < 1) return { x: sp.x+12, y: (sp.y+tp.y)/2 };
+    return { x: (sp.x+tp.x)/2, y: (sp.y+tp.y)/2-12 };
+  } else if (horiz) {
+    return Math.abs(tp.x-sp.x) >= Math.abs(tp.y-sp.y)
+      ? { x: (sp.x+tp.x)/2, y: sp.y-12 }
+      : { x: tp.x+12, y: (sp.y+tp.y)/2 };
+  } else {
+    return Math.abs(tp.y-sp.y) >= Math.abs(tp.x-sp.x)
+      ? { x: sp.x+12, y: (sp.y+tp.y)/2 }
+      : { x: (sp.x+tp.x)/2, y: tp.y-12 };
+  }
 }
 
 const TH={
@@ -633,19 +698,46 @@ Architecture: ${input.trim()}`;
               {groups.map(g=>{const isSel=sel?.kind==="group"&&sel.id===g.id;const d=g.depth||0;const bw=isSel?2.5:Math.max(1,2-d*0.4);const fillOp=Math.max(4,10-d*2).toString(16).padStart(2,'0'); return (
                 <g key={g.id}><rect x={g.x} y={g.y} width={g.w} height={g.h} rx={Math.max(6,10-d*2)} fill={g.color+fillOp} stroke={isSel?T.sel:g.border+(d>0?"40":"60")} strokeWidth={bw} strokeDasharray={g.dash?"8 4":"none"} style={{cursor:editMode?(connectFrom?"crosshair":"grab"):"default"}} onMouseDown={e=>onGroupDown(e,g.id)} onTouchStart={e=>onGroupDown(e,g.id)}/><rect x={g.x} y={g.y} width={g.w} height={d>0?24:28} rx={Math.max(6,10-d*2)} fill={g.color+(d>0?"0c":"14")} style={{pointerEvents:"none"}}/><rect x={g.x} y={g.y+(d>0?16:20)} width={g.w} height={8} fill={g.color+(d>0?"0c":"14")} style={{pointerEvents:"none"}}/><text x={g.x+(d>0?8:12)} y={g.y+(d>0?16:18)} fill={g.border} fontSize={d>0?10:11} fontWeight="600" fontFamily="Segoe UI" style={{pointerEvents:"none"}}>{g.label}</text>{hierViolations.has(g.id)&&<g style={{pointerEvents:"none"}}><title>Hierarchy violation</title><circle cx={g.x+g.w-8} cy={g.y+8} r={7} fill="#f59e0b"/><text x={g.x+g.w-8} y={g.y+12} textAnchor="middle" fill="white" fontSize="9" fontWeight="700" fontFamily="Segoe UI">!</text></g>}{editMode&&<><rect x={g.x+g.w-16} y={g.y+g.h-16} width={16} height={16} rx={4} fill="transparent" style={{cursor:"nwse-resize"}} onMouseDown={e=>onResizeDown(e,g.id)} onTouchStart={e=>onResizeDown(e,g.id)}/><path d={`M${g.x+g.w-5} ${g.y+g.h-12}L${g.x+g.w-5} ${g.y+g.h-5}L${g.x+g.w-12} ${g.y+g.h-5}`} fill="none" stroke={g.border+"40"} strokeWidth="1.5" style={{pointerEvents:"none"}}/></>}</g>
               );})}
-              {edges.map(edge=>{
-                // Resolve endpoint from nodes or groups
-                const resolvePoint = (id) => {
-                  const nd = nodes.find(n=>n.id===id);
-                  if (nd) return {x:nd.x, y:nd.y, r:30};
-                  const g = groups.find(g=>g.id===id);
-                  if (g) return {x:g.x+g.w/2, y:g.y+g.h/2, r:Math.min(g.w,g.h)/2};
-                  return null;
-                };
-                const a=resolvePoint(edge.from), b=resolvePoint(edge.to);
-                if(!a||!b)return null;const p=edgePath(a,b);const isSel=sel?.kind==="edge"&&sel.id===edge.id; return (
-                <g key={edge.id} style={{cursor:"pointer"}} onClick={e=>{e.stopPropagation();setSel({kind:"edge",id:edge.id});}}><path d={p} fill="none" stroke="transparent" strokeWidth="14"/><path d={p} fill="none" stroke={isSel?T.sel:T.ts} strokeWidth={isSel?3.5:2.5} strokeDasharray={edge.style==="dashed"?"6 3":"none"} markerEnd={isSel?"url(#ahS)":"url(#ah)"} opacity={isSel?1:.7}/>{edge.label&&(()=>{const mx=(a.x+b.x)/2,my=(a.y+b.y)/2-12; return <g><rect x={mx-edge.label.length*3.5-8} y={my-10} width={edge.label.length*7+16} height={18} rx={9} fill={T.srf} stroke={T.ts} strokeWidth="1" style={{filter:"drop-shadow(0 1px 3px rgba(0,0,0,.4))"}}/><text x={mx} y={my+4} textAnchor="middle" fill={isSel?T.sel:T.ts} fontSize="10" fontFamily="Consolas,monospace" fontWeight="600">{edge.label}</text></g>;})()}</g>
-              );})}
+              {(()=>{
+                // Precompute port assignments + multi-edge offsets
+                const portMap={}, sharedPorts={};
+                edges.forEach(edge=>{
+                  const sA=resolveAnchor(edge.from,nodes,groups), tA=resolveAnchor(edge.to,nodes,groups);
+                  if(!sA||!tA)return;
+                  const {srcPort,tgtPort}=selectPorts(sA,tA);
+                  portMap[edge.id]={srcPort,tgtPort,sA,tA};
+                  const k=`${edge.from}:${srcPort}`;
+                  if(!sharedPorts[k])sharedPorts[k]=[];
+                  sharedPorts[k].push({id:edge.id,tgtCy:tA.cy});
+                });
+                const edgeOff={};
+                Object.entries(sharedPorts).forEach(([k,list])=>{
+                  if(list.length<2)return;
+                  const port=k.split(':')[1];
+                  list.sort((a,b)=>a.tgtCy-b.tgtCy);
+                  list.forEach((item,i)=>{
+                    const off=(i-(list.length-1)/2)*6;
+                    edgeOff[item.id]=port==='right'||port==='left'?{dx:0,dy:off}:{dx:off,dy:0};
+                  });
+                });
+                return edges.map(edge=>{
+                  const info=portMap[edge.id];if(!info)return null;
+                  const {srcPort,tgtPort,sA,tA}=info;
+                  const o=edgeOff[edge.id]||{dx:0,dy:0};
+                  const sp={x:sA.ports[srcPort].x+o.dx,y:sA.ports[srcPort].y+o.dy};
+                  const tp=tA.ports[tgtPort];
+                  const p=orthogonalPath(srcPort,tgtPort,sp,tp);
+                  const isSel=sel?.kind==="edge"&&sel.id===edge.id;
+                  const lp=edgeLabelXY(srcPort,tgtPort,sp,tp);
+                  return (
+                    <g key={edge.id} style={{cursor:"pointer"}} onClick={e=>{e.stopPropagation();setSel({kind:"edge",id:edge.id});}}>
+                      <path d={p} fill="none" stroke="transparent" strokeWidth="14"/>
+                      <path d={p} fill="none" stroke={isSel?T.sel:T.ts} strokeWidth={isSel?3.5:2.5} strokeDasharray={edge.style==="dashed"?"6 3":"none"} markerEnd={isSel?"url(#ahS)":"url(#ah)"} opacity={isSel?1:.7}/>
+                      {edge.label&&<g><rect x={lp.x-edge.label.length*3.5-8} y={lp.y-10} width={edge.label.length*7+16} height={18} rx={9} fill={T.srf} stroke={T.ts} strokeWidth="1" style={{filter:"drop-shadow(0 1px 3px rgba(0,0,0,.4))"}}/><text x={lp.x} y={lp.y+4} textAnchor="middle" fill={isSel?T.sel:T.ts} fontSize="10" fontFamily="Consolas,monospace" fontWeight="600">{edge.label}</text></g>}
+                    </g>
+                  );
+                });
+              })()}
               {nodes.map(nd=>{const s=ALL[nd.type];if(!s)return null;const isSel=sel?.kind==="node"&&sel.id===nd.id;const isCon=connectFrom===nd.id; return (
                 <g key={nd.id} onMouseDown={e=>onNodeDown(e,nd.id)} onTouchStart={e=>onNodeDown(e,nd.id)} style={{cursor:editMode?(connectFrom?"crosshair":"grab"):"default"}}>{(isSel||isCon)&&<rect x={nd.x-32} y={nd.y-32} width={64} height={64} rx={14} fill="none" stroke={isCon?"#f59e0b":T.sel} strokeWidth="2" opacity=".45" strokeDasharray={isCon?"4 2":"none"}/>}<rect x={nd.x-28} y={nd.y-28} width={56} height={56} rx={12} fill={T.nBg} stroke={isSel?T.sel+"80":T.nSt} strokeWidth={isSel?1.5:1}/><image href={ICONS[nd.type]} x={nd.x-14} y={nd.y-14} width={28} height={28} style={{pointerEvents:"none"}}/><text x={nd.x} y={nd.y+40} textAnchor="middle" fill={T.ts} fontSize="9" fontFamily="Segoe UI" fontWeight="500" style={{pointerEvents:"none"}}>{nd.label.length>16?nd.label.slice(0,15)+"…":nd.label}</text>{nd.techName&&<text x={nd.x} y={nd.y+51} textAnchor="middle" fill="#a5b4fc" fontSize="7" fontFamily="Consolas,monospace" style={{pointerEvents:"none"}}>{nd.techName.length>20?nd.techName.slice(0,19)+"…":nd.techName}</text>}{nd.wafPillar&&WAF_PILLARS[nd.wafPillar]&&<><circle cx={nd.x+24} cy={nd.y-24} r={9} fill={WAF_PILLARS[nd.wafPillar].color} style={{pointerEvents:"none"}}/><text x={nd.x+24} y={nd.y-20} textAnchor="middle" fill="white" fontSize="7" fontFamily="Segoe UI" fontWeight="700" style={{pointerEvents:"none"}}>{nd.wafPillar}</text></>}{(nameViolations.has(nd.id)||hierViolations.has(nd.id))&&<g style={{pointerEvents:"none"}}><title>{nameViolations.has(nd.id)?"Non-CAF name":""}{ nameViolations.has(nd.id)&&hierViolations.has(nd.id)?"; ":""}{hierViolations.has(nd.id)?"Hierarchy violation":""}</title><circle cx={nd.x-24} cy={nd.y-24} r={7} fill="#f59e0b"/><text x={nd.x-24} y={nd.y-20} textAnchor="middle" fill="white" fontSize="9" fontWeight="700" fontFamily="Segoe UI">!</text></g>}</g>
               );})}
