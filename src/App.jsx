@@ -353,21 +353,18 @@ function resolveAnchor(id, nodes, groups) {
   return null;
 }
 
-function selectPorts(sA, tA) {
+function selectPorts(sA, tA, allGroups) {
   const dx = tA.cx - sA.cx, dy = tA.cy - sA.cy;
   const absDx = Math.abs(dx), absDy = Math.abs(dy);
-  // If nodes are on roughly the same row (small dy), route via top/bottom to avoid crossing through nodes
-  if (absDy < 60 && absDx > 60) {
-    // Forward direction (left-to-right flow): go UP and over
-    // Backward direction (right-to-left): go DOWN and under to avoid looping
-    return dx >= 0 ? { srcPort: 'top', tgtPort: 'top' } : { srcPort: 'bottom', tgtPort: 'bottom' };
-  }
-  // If target is clearly above or below, use vertical ports
-  if (absDy > absDx * 0.6) {
+  // Strategy: ALL edges fly ABOVE containers via top ports
+  // This ensures arrows never cross through nodes or get hidden behind groups
+
+  // If target is directly below source (large dy, small dx) — use bottom→top
+  if (absDy > 120 && absDy > absDx * 2) {
     return dy >= 0 ? { srcPort: 'bottom', tgtPort: 'top' } : { srcPort: 'top', tgtPort: 'bottom' };
   }
-  // Target is clearly to the side and at a different vertical level — use horizontal ports
-  return dx >= 0 ? { srcPort: 'right', tgtPort: 'left' } : { srcPort: 'left', tgtPort: 'right' };
+  // Everything else: fly above via top→top (U-shape over all containers)
+  return { srcPort: 'top', tgtPort: 'top' };
 }
 
 function orthogonalPath(srcPort, tgtPort, sp, tp) {
@@ -376,11 +373,14 @@ function orthogonalPath(srcPort, tgtPort, sp, tp) {
   // U-shape: both ports on same side (e.g. both top → go up, across, down)
   const sameSide = srcPort === tgtPort;
   if (sameSide) {
-    const clearance = 80;
+    const clearance = 40;
     if (srcPort === 'top' || srcPort === 'bottom') {
-      // Vertical U-shape: go up/down, horizontal, back down/up
+      // Vertical U-shape: fly ABOVE all containers
       const dir = srcPort === 'top' ? -1 : 1;
-      const peakY = (srcPort === 'top' ? Math.min(sp.y, tp.y) : Math.max(sp.y, tp.y)) + dir * clearance;
+      // Use a fixed high point above everything — higher when nodes are far apart
+      const spread = Math.abs(tp.x - sp.x);
+      const dynamicClear = clearance + Math.min(spread * 0.15, 60);
+      const peakY = (srcPort === 'top' ? Math.min(sp.y, tp.y) : Math.max(sp.y, tp.y)) + dir * dynamicClear;
       const sx = tp.x > sp.x ? 1 : -1;
       segs.push(`V ${peakY+dir*r}`,`Q ${sp.x},${peakY} ${sp.x+sx*r},${peakY}`,`H ${tp.x-sx*r}`,`Q ${tp.x},${peakY} ${tp.x},${peakY-dir*r}`,`V ${tp.y}`);
     } else {
