@@ -367,14 +367,20 @@ function orthogonalPath(srcPort, tgtPort, sp, tp) {
   const horiz = srcPort === 'right' || srcPort === 'left';
   const parallel = (srcPort==='right'&&tgtPort==='left')||(srcPort==='left'&&tgtPort==='right')||(srcPort==='bottom'&&tgtPort==='top')||(srcPort==='top'&&tgtPort==='bottom');
   if (parallel && horiz) {
-    const midX = (sp.x + tp.x) / 2, dy = tp.y - sp.y;
+    const rawMidX = (sp.x + tp.x) / 2;
+    const minClear = 50;
+    const midX = sp.x < tp.x ? Math.max(rawMidX, sp.x + minClear) : Math.min(rawMidX, sp.x - minClear);
+    const dy = tp.y - sp.y;
     if (Math.abs(dy) < 1) { segs.push(`H ${tp.x}`); }
     else {
       const sy = dy > 0 ? 1 : -1;
       segs.push(`H ${midX-r}`,`Q ${midX},${sp.y} ${midX},${sp.y+sy*r}`,`V ${tp.y-sy*r}`,`Q ${midX},${tp.y} ${midX+(tp.x>sp.x?r:-r)},${tp.y}`,`H ${tp.x}`);
     }
   } else if (parallel && !horiz) {
-    const midY = (sp.y + tp.y) / 2, dx = tp.x - sp.x;
+    const rawMidY = (sp.y + tp.y) / 2;
+    const minClearV = 50;
+    const midY = sp.y < tp.y ? Math.max(rawMidY, sp.y + minClearV) : Math.min(rawMidY, sp.y - minClearV);
+    const dx = tp.x - sp.x;
     if (Math.abs(dx) < 1) { segs.push(`V ${tp.y}`); }
     else {
       const sx = dx > 0 ? 1 : -1;
@@ -418,7 +424,7 @@ const TH={
 };
 
 export default function App(){
-  const [nodes,setNodes]=useState([]);const [groups,setGroups]=useState([]);const [edges,setEdges]=useState([]);const [sel,setSel]=useState(null);const [connectFrom,setConnectFrom]=useState(null);const [drag,setDrag]=useState(null);const [rsz,setRsz]=useState(null);const [pan,setPan]=useState({x:0,y:0});const [panSt,setPanSt]=useState(null);const [zoom,setZoom]=useState(1);const [edgeLbl,setEdgeLbl]=useState("");const [edgeStyle,setEdgeStyle]=useState("solid");const [title,setTitle]=useState("Azure Deployment Diagram");const [grid,setGrid]=useState(true);const [input,setInput]=useState("");const [activeEx,setActiveEx]=useState(null);const [theme,setTheme]=useState("dark");const [editMode,setEditMode]=useState(false);const [showPalette,setShowPalette]=useState(false);const [openCat,setOpenCat]=useState(null);const [drawerOpen,setDrawerOpen]=useState(false);const [isMobile]=useState(typeof window!=="undefined"&&window.innerWidth<768);const [hasData,setHasData]=useState(false);const [toast,setToast]=useState(null);
+  const [nodes,setNodes]=useState([]);const [groups,setGroups]=useState([]);const [edges,setEdges]=useState([]);const [sel,setSel]=useState(null);const [connectFrom,setConnectFrom]=useState(null);const [drag,setDrag]=useState(null);const [rsz,setRsz]=useState(null);const [pan,setPan]=useState({x:0,y:0});const [panSt,setPanSt]=useState(null);const [zoom,setZoom]=useState(1);const [edgeLbl,setEdgeLbl]=useState("");const [edgeStyle,setEdgeStyle]=useState("solid");const [title,setTitle]=useState("Azure Deployment Diagram");const [grid,setGrid]=useState(true);const [input,setInput]=useState("");const [activeEx,setActiveEx]=useState(null);const [theme,setTheme]=useState("light");const [editMode,setEditMode]=useState(false);const [showPalette,setShowPalette]=useState(false);const [openCat,setOpenCat]=useState(null);const [drawerOpen,setDrawerOpen]=useState(false);const [isMobile]=useState(typeof window!=="undefined"&&window.innerWidth<768);const [hasData,setHasData]=useState(false);const [toast,setToast]=useState(null);
   const svgRef=useRef(null);const mainRef=useRef(null);const nid=useRef(100);const gid=useRef(100);const pinchRef=useRef(null);const saveTimerRef=useRef(null);const T=TH[theme];
 
   const [historyStack, setHistoryStack] = useState([]);
@@ -716,7 +722,7 @@ Architecture: ${input.trim()}`;
                   const port=k.split(':')[1];
                   list.sort((a,b)=>a.tgtCy-b.tgtCy);
                   list.forEach((item,i)=>{
-                    const off=(i-(list.length-1)/2)*6;
+                    const off=(i-(list.length-1)/2)*14;
                     edgeOff[item.id]=port==='right'||port==='left'?{dx:0,dy:off}:{dx:off,dy:0};
                   });
                 });
