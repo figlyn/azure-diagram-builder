@@ -355,15 +355,42 @@ function resolveAnchor(id, nodes, groups) {
 
 function selectPorts(sA, tA) {
   const dx = tA.cx - sA.cx, dy = tA.cy - sA.cy;
-  if (Math.abs(dx) >= Math.abs(dy) * 0.8) {
-    return dx >= 0 ? { srcPort: 'right', tgtPort: 'left' } : { srcPort: 'left', tgtPort: 'right' };
+  const absDx = Math.abs(dx), absDy = Math.abs(dy);
+  // If nodes are on roughly the same row (small dy), route via top/bottom to avoid crossing through nodes
+  if (absDy < 60 && absDx > 60) {
+    // Same row — go UP from source, across, then DOWN to target (or vice versa)
+    return { srcPort: 'top', tgtPort: 'top' };
   }
-  return dy >= 0 ? { srcPort: 'bottom', tgtPort: 'top' } : { srcPort: 'top', tgtPort: 'bottom' };
+  // If target is clearly above or below, use vertical ports
+  if (absDy > absDx * 0.6) {
+    return dy >= 0 ? { srcPort: 'bottom', tgtPort: 'top' } : { srcPort: 'top', tgtPort: 'bottom' };
+  }
+  // Target is clearly to the side and at a different vertical level — use horizontal ports
+  return dx >= 0 ? { srcPort: 'right', tgtPort: 'left' } : { srcPort: 'left', tgtPort: 'right' };
 }
 
 function orthogonalPath(srcPort, tgtPort, sp, tp) {
   const r = EDGE_CR;
   const segs = [`M ${sp.x},${sp.y}`];
+  // U-shape: both ports on same side (e.g. both top → go up, across, down)
+  const sameSide = srcPort === tgtPort;
+  if (sameSide) {
+    const clearance = 60;
+    if (srcPort === 'top' || srcPort === 'bottom') {
+      // Vertical U-shape: go up/down, horizontal, back down/up
+      const dir = srcPort === 'top' ? -1 : 1;
+      const peakY = (srcPort === 'top' ? Math.min(sp.y, tp.y) : Math.max(sp.y, tp.y)) + dir * clearance;
+      const sx = tp.x > sp.x ? 1 : -1;
+      segs.push(`V ${peakY+dir*r}`,`Q ${sp.x},${peakY} ${sp.x+sx*r},${peakY}`,`H ${tp.x-sx*r}`,`Q ${tp.x},${peakY} ${tp.x},${peakY-dir*r}`,`V ${tp.y}`);
+    } else {
+      // Horizontal U-shape: go left/right, vertical, back right/left
+      const dir = srcPort === 'left' ? -1 : 1;
+      const peakX = (srcPort === 'left' ? Math.min(sp.x, tp.x) : Math.max(sp.x, tp.x)) + dir * clearance;
+      const sy = tp.y > sp.y ? 1 : -1;
+      segs.push(`H ${peakX+dir*r}`,`Q ${peakX},${sp.y} ${peakX},${sp.y+sy*r}`,`V ${tp.y-sy*r}`,`Q ${peakX},${tp.y} ${peakX-dir*r},${tp.y}`,`H ${tp.x}`);
+    }
+    return segs.join(' ');
+  }
   const horiz = srcPort === 'right' || srcPort === 'left';
   const parallel = (srcPort==='right'&&tgtPort==='left')||(srcPort==='left'&&tgtPort==='right')||(srcPort==='bottom'&&tgtPort==='top')||(srcPort==='top'&&tgtPort==='bottom');
   if (parallel && horiz) {
@@ -399,6 +426,13 @@ function orthogonalPath(srcPort, tgtPort, sp, tp) {
 }
 
 function edgeLabelXY(srcPort, tgtPort, sp, tp) {
+  // U-shape: label on the horizontal segment
+  if (srcPort === tgtPort) {
+    if (srcPort === 'top') return { x: (sp.x+tp.x)/2, y: Math.min(sp.y, tp.y) - 72 };
+    if (srcPort === 'bottom') return { x: (sp.x+tp.x)/2, y: Math.max(sp.y, tp.y) + 72 };
+    if (srcPort === 'left') return { x: Math.min(sp.x, tp.x) - 72, y: (sp.y+tp.y)/2 };
+    return { x: Math.max(sp.x, tp.x) + 72, y: (sp.y+tp.y)/2 };
+  }
   const horiz = srcPort === 'right' || srcPort === 'left';
   const parallel = (srcPort==='right'&&tgtPort==='left')||(srcPort==='left'&&tgtPort==='right')||(srcPort==='bottom'&&tgtPort==='top')||(srcPort==='top'&&tgtPort==='bottom');
   if (parallel && horiz) {
