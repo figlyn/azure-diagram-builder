@@ -104,3 +104,58 @@ rg, vnet_grp, subnet_grp, aks_grp, region, onprem, custom
 ## Testing
 See `azure-diagram-testcases.md` for 57 test cases.
 See `azure-diagram-requirements.md` for 84 user stories.
+
+## Agent System
+
+This project uses specialized agents for feature development. Agent definitions are in `.claude/agents/`.
+
+### Available Agents
+
+| Agent | File | Purpose |
+|-------|------|---------|
+| 🎯 **Orchestrator** | `orchestrator.md` | Coordinates agents through design → spec → implement → validate → staging → production |
+| 🏛️ **Architect** | `architect.md` | Research, system design, technical planning |
+| 🎨 **UX** | `ux.md` | User experience, interactions, visual design |
+| ✅ **QA** | `qa.md` | Testing, Playwright automation, validation |
+| 💻 **Developer** | `developer.md` | Implementation, bug fixes, coding |
+| 🚀 **Deployment** | `deployment.md` | Builds, staging/production deploys, Cloudflare |
+| 📊 **Progress** | `progress.md` | Story tracking, status updates, changelog |
+
+### Feature Development Workflow
+
+When building features, the Orchestrator manages this workflow:
+
+```
+Phase 1: Design      → Architect + UX research and design
+Phase 2: Spec        → Define test cases, acceptance criteria
+Phase 3: Implement   → Developer builds, QA writes tests
+Phase 4: Validate    → QA tests, UX reviews, Architect reviews
+Phase 5: Staging     → Deploy to staging.nwgrm.org, smoke test
+Phase 6: Production  → Deploy to azure.nwgrm.org, tag release
+```
+
+### Activating Agents
+
+To work with a specific agent, reference it:
+- "As the QA agent, write Playwright tests for zoom"
+- "Architect: research best approaches for multi-select"
+- "UX: review the mobile sidebar experience"
+
+To run full feature workflow:
+- "Build feature: multi-select"
+- "Implement snap-to-grid end-to-end"
+
+To resume after restart:
+- "Resume session" - Continue from saved state
+- "Where were we?" - Show progress and continue
+
+### Session Persistence
+
+Progress is saved to disk and survives restarts:
+
+| File | What's Saved |
+|------|--------------|
+| `.claude/progress/session.md` | Current feature, phase, checklist |
+| `.claude/progress/current-sprint.md` | Sprint stories and status |
+| `azure-diagram-requirements.md` | Story statuses `[x]`, `[B]`, `[T]` |
+| `CHANGELOG.md` | Completed releases |
