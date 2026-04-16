@@ -9,3 +9,4 @@ dist/
 .claude/skills/trailofbits-skills/
 .claude/skills/anthropic-skills/
 .claude/skills/anthropic-claude-code/
+.claude/worktrees/
