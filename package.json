@@ -12,13 +12,22 @@
     "deploy:staging": "vite build && npx wrangler deploy --env staging"
   },
   "dependencies": {
+    "elkjs": "^0.11.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.4",
+    "playwright": "^1.59.1",
     "vite": "^6.0.0"
   },
-  "keywords": ["azure", "diagram", "architecture", "cloud", "deployment", "ai"],
+  "keywords": [
+    "azure",
+    "diagram",
+    "architecture",
+    "cloud",
+    "deployment",
+    "ai"
+  ],
   "license": "MIT"
 }
