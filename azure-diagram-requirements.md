@@ -8,6 +8,20 @@ An interactive browser-based tool for creating Azure architecture deployment dia
 
 **Target Output:** 16:9 slide-ready diagrams for PPTX decks, architecture documentation, customer presentations
 
+## Current Status Snapshot
+
+- Phases 1-4 are complete.
+- Phase 4 verification baseline:
+  - `tests/phase4-c4model.spec.js`: `51/51` passing
+  - full Playwright suite: `151/151` passing
+  - `npm run build`: passing
+- Accessibility follow-up completed for Phase 4 controls:
+  - view mode buttons expose selected state accessibly
+  - collapse / expand group controls are keyboard accessible
+  - component drill-in panel supports focus management and `Escape`
+- Next implementation target: Phase 5 accessibility stories `WAF-40`, `WAF-41`, `WAF-42`
+- QA follow-up file: `QA-BUG-REPORT.md`
+
 ---
 
 ## 1. Service Catalog
@@ -216,6 +230,67 @@ An interactive browser-based tool for creating Azure architecture deployment dia
 
 ---
 
+## 11. Azure Well-Architected Compliance
+
+*Based on Microsoft's [Well-Architected Framework guidance on design diagrams](https://learn.microsoft.com/en-us/azure/well-architected/architect-role/design-diagrams).*
+
+### 11.1 Diagram Metadata
+
+| ID | Story | Status |
+|----|-------|--------|
+| WAF-01 | As a user, I can set diagram metadata (title, author, version, last updated date) in a metadata panel | ✅ Implemented |
+| WAF-02 | As a user, I can add a description field to document the diagram's purpose and scope | ✅ Implemented |
+| WAF-03 | As a user, diagram metadata is included in the SVG export header or as hidden metadata | ✅ Implemented |
+| WAF-04 | As a user, I can add external reference URLs (links to ADRs, runbooks, docs) to the diagram | ✅ Implemented |
+
+### 11.2 Legend & Notation
+
+| ID | Story | Status |
+|----|-------|--------|
+| WAF-10 | As a user, I can generate an auto-legend showing all group types used in the diagram with their colors/borders | ✅ Implemented |
+| WAF-11 | As a user, the legend shows edge style meanings (solid = synchronous, dashed = asynchronous) | ✅ Implemented |
+| WAF-12 | As a user, the legend is included in SVG/PNG exports | ✅ Implemented |
+| WAF-13 | As a user, I can toggle legend visibility on/off | ✅ Implemented |
+
+### 11.3 Trust Boundaries & Security
+
+| ID | Story | Status |
+|----|-------|--------|
+| WAF-20 | As a user, I can add trust boundary lines to mark security perimeters (rendered as thick red dashed lines) | ✅ Implemented |
+| WAF-21 | As a user, I can add data classification labels to edges (Public, Internal, Confidential, Restricted) | ✅ Implemented |
+| WAF-22 | As a user, data classification renders as a small badge/icon on the edge | ✅ Implemented |
+| WAF-23 | As a user, I can add compliance zone annotations (e.g., "PCI Scope", "HIPAA Zone") to groups | ✅ Implemented |
+
+### 11.4 C4 Model / Layered Views
+
+| ID | Story | Status |
+|----|-------|--------|
+| WAF-30 | As a user, I can switch between diagram view modes: Context, Container, Component | ✅ Implemented |
+| WAF-31 | As a user, in Context view I see the system as a black box with external actors and systems only | ✅ Implemented |
+| WAF-32 | As a user, in Container view I see Azure services and groups (current default behavior) | ✅ Implemented |
+| WAF-33 | As a user, in Component view I can drill into a specific service to show internal components | ✅ Implemented |
+| WAF-34 | As a user, I can add external actor nodes (Users, External Systems) for context diagrams | ✅ Implemented |
+| WAF-35 | As a user, I can collapse a group to a single icon for higher-level views | ✅ Implemented |
+
+### 11.5 Accessibility
+
+| ID | Story | Status |
+|----|-------|--------|
+| WAF-40 | As a user, groups have pattern fills in addition to colors so color-blind users can distinguish them | 🔲 Not Implemented |
+| WAF-41 | As a user, all colors meet WCAG 2.1 AA contrast requirements | 🔲 Not Implemented |
+| WAF-42 | As a user, I can export diagram with alt-text descriptions for screen readers | 🔲 Not Implemented |
+
+### 11.6 Version Control & History
+
+| ID | Story | Status |
+|----|-------|--------|
+| WAF-50 | As a user, I can save the diagram to a JSON file for version control | ✅ Implemented |
+| WAF-51 | As a user, I can load a diagram from a JSON file | ✅ Implemented |
+| WAF-52 | As a user, I can see a changelog of diagram versions when stored in git | 🔲 Not Implemented |
+| WAF-53 | As a user, the JSON export is formatted for human-readable diffs | ✅ Implemented |
+
+---
+
 ## Summary
 
 | Category | Implemented | Partial | Not Implemented |
@@ -230,4 +305,5 @@ An interactive browser-based tool for creating Azure architecture deployment dia
 | Annotations | 0 | 0 | 3 |
 | Persistence | 0 | 0 | 3 |
 | Mobile | 2 | 0 | 1 |
-| **Total** | **42** | **2** | **40** |
+| Well-Architected | 21 | 0 | 4 |
+| **Total** | **63** | **2** | **41** |

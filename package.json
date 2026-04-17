@@ -9,7 +9,10 @@
     "build": "vite build",
     "preview": "vite preview",
     "deploy": "vite build && npx wrangler deploy",
-    "deploy:staging": "vite build && npx wrangler deploy --env staging"
+    "deploy:staging": "vite build && npx wrangler deploy --env staging",
+    "test": "npx playwright test",
+    "test:ui": "npx playwright test --ui",
+    "test:headed": "npx playwright test --headed"
   },
   "dependencies": {
     "elkjs": "^0.11.1",
@@ -17,8 +20,8 @@
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.59.1",
     "@vitejs/plugin-react": "^4.3.4",
-    "playwright": "^1.59.1",
     "vite": "^6.0.0"
   },
   "keywords": [

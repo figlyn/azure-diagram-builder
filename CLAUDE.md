@@ -105,6 +105,33 @@ rg, vnet_grp, subnet_grp, aks_grp, region, onprem, custom
 See `azure-diagram-testcases.md` for 57 test cases.
 See `azure-diagram-requirements.md` for 84 user stories.
 
+## Current Delivery Status
+
+- Phases 1-4 are implemented and validated.
+- Phase 4 C4 Model work is complete, including:
+  - Context / Container / Component view modes
+  - external actors
+  - component drill-in
+  - collapsible groups
+- Phase 4 QA suite is hardened to `51/51` passing in `tests/phase4-c4model.spec.js`.
+- Full Playwright suite is currently `151/151` passing.
+- `npm run build` passes after the latest fixes.
+- Remaining delivery scope is Phase 5 accessibility plus manual UX review.
+
+## Session Handoff
+
+- Primary handoff file: `.claude/progress/session.md`
+- Sprint tracker: `.claude/progress/current-sprint.md`
+- QA follow-up and remaining risks: `QA-BUG-REPORT.md`
+
+Latest session achievements:
+- Fixed Phase 4 regressions in WAF-33 and WAF-35.
+- Added accessibility semantics and keyboard behavior for Phase 4 controls.
+- Hardened Playwright scenarios so they validate behavior more directly.
+
+Recommended resume point:
+- Implement Phase 5 accessibility stories `WAF-40`, `WAF-41`, and `WAF-42`, then return to the residual QA risks documented in `QA-BUG-REPORT.md`.
+
 ## Agent System
 
 This project uses specialized agents for feature development. Agent definitions are in `.claude/agents/`.
@@ -133,6 +160,24 @@ Phase 4: Validate    → QA tests, UX reviews, Architect reviews
 Phase 5: Staging     → Deploy to staging.nwgrm.org, smoke test
 Phase 6: Production  → Deploy to azure.nwgrm.org, tag release
 ```
+
+### Mandatory Agent Delegation
+
+**CRITICAL: Never implement features directly in the main conversation.** Always delegate to specialized agents:
+
+| Task Type | Required Agent | Tool Call |
+|-----------|----------------|-----------|
+| Implementation/coding | 💻 Developer | `Task(subagent_type="general-purpose", prompt="As Developer agent: ...")` |
+| Writing tests | ✅ QA | `Task(subagent_type="general-purpose", prompt="As QA agent: ...")` |
+| Running tests | ✅ QA | `Task(subagent_type="general-purpose", prompt="As QA agent: ...")` |
+| Research/design | 🏛️ Architect | `Task(subagent_type="general-purpose", prompt="As Architect agent: ...")` |
+| UX review | 🎨 UX | `Task(subagent_type="general-purpose", prompt="As UX agent: ...")` |
+| Builds/deploys | 🚀 Deployment | `Task(subagent_type="general-purpose", prompt="As Deployment agent: ...")` |
+
+**Violations:**
+- ❌ Editing `src/App.jsx` directly without Developer agent
+- ❌ Running `npm run build` without Deployment agent
+- ❌ Marking stories complete without QA agent validation
 
 ### Activating Agents
 
