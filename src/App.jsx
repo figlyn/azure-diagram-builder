@@ -935,6 +935,8 @@ export default function App(){
   const [showMetadata,setShowMetadata]=useState(false);
   // WAF-10/11/12/13: Legend for group types and edge styles
   const [showLegend,setShowLegend]=useState(false);
+  // Edge label visualization style: 'compact' | 'minimal' | 'legend'
+  const [labelStyle,setLabelStyle]=useState("compact");
   // WAF-30/31/33: C4 Model view modes (Context, Container, Component)
   const [viewMode,setViewMode]=useState("container"); // context | container | component
   const [drillInNode,setDrillInNode]=useState(null); // Node being drilled into for Component view
@@ -1454,6 +1456,7 @@ Architecture: ${input.trim()}`;
           {hasData&&<button onClick={()=>zoomToFit(nodes,groups)} style={{padding:"5px 10px",background:"transparent",border:`1px solid ${T.bdr}`,borderRadius:5,color:T.ts,fontSize:10,cursor:"pointer"}}>⊙ Fit</button>}
           {hasData&&<button onClick={runValidate} title="Validate CAF names and Azure hierarchy" style={{padding:"5px 10px",background:(nameViolations.size||hierViolations.size)?"rgba(245,158,11,.1)":"transparent",border:`1px solid ${(nameViolations.size||hierViolations.size)?"#f59e0b":T.bdr}`,borderRadius:5,color:(nameViolations.size||hierViolations.size)?"#f59e0b":T.ts,fontSize:10,cursor:"pointer"}}>⚠ Validate</button>}
           {hasData&&<button onClick={()=>setShowLegend(v=>!v)} title="Toggle diagram legend" style={{padding:"5px 10px",background:showLegend?"rgba(59,130,246,.12)":"transparent",border:`1px solid ${showLegend?T.sel:T.bdr}`,borderRadius:5,color:showLegend?T.sel:T.ts,fontSize:10,cursor:"pointer"}}>☰ Legend</button>}
+          {hasData&&<select data-testid="label-style-select" value={labelStyle} onChange={e=>setLabelStyle(e.target.value)} title="Edge label visualization style" style={{padding:"5px 8px",background:T.srf,border:`1px solid ${T.bdr}`,borderRadius:5,color:T.ts,fontSize:10,cursor:"pointer"}}><option value="compact">Compact</option><option value="minimal">Minimal</option><option value="legend">Legend</option></select>}
           {hasData&&<button onClick={handleExport} style={{padding:"5px 10px",background:"transparent",border:`1px solid ${T.bdr}`,borderRadius:5,color:T.ts,fontSize:10,cursor:"pointer"}}>↓ SVG</button>}
           {hasData&&<button onClick={handleExportPng} style={{padding:"5px 10px",background:"transparent",border:`1px solid ${T.bdr}`,borderRadius:5,color:T.ts,fontSize:10,cursor:"pointer"}}>↓ PNG</button>}
           {hasData&&<button onClick={handleSaveJson} title="Save diagram to JSON file" style={{padding:"5px 10px",background:"transparent",border:`1px solid ${T.bdr}`,borderRadius:5,color:T.ts,fontSize:10,cursor:"pointer"}}>💾 Save</button>}
@@ -1698,6 +1701,23 @@ Architecture: ${input.trim()}`;
                   }
                 });
 
+                // Track edge numbers for legend mode
+                let edgeNumberMap = {};
+                let edgeNumCounter = 1;
+                edges.forEach(edge => {
+                  const info = portMap[edge.id];
+                  if (info && (edge.label || edge.classification)) {
+                    edgeNumberMap[edge.id] = edgeNumCounter++;
+                  }
+                });
+
+                // Font configuration for label styles
+                const LABEL_FONTS = {
+                  compact: "'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, monospace",
+                  minimal: "'Inter', -apple-system, sans-serif",
+                  legend: "'Inter', -apple-system, sans-serif"
+                };
+
                 return edges.map(edge=>{
                   // Skip edges not in portMap (hidden or internal to collapsed group)
                   const info=portMap[edge.id];
@@ -1780,12 +1800,81 @@ Architecture: ${input.trim()}`;
                   // WAF-21/22: Classification badge
                   const clf = edge.classification && DATA_CLASSIFICATIONS[edge.classification];
                   const clfBadgeY = edge.label ? lp.y + 16 : lp.y;
+                  const edgeNum = edgeNumberMap[edge.id];
+
+                  // Render edge label based on labelStyle mode
+                  const renderEdgeLabel = () => {
+                    if (!edge.label && !clf) return null;
+
+                    // COMPACT MODE: Small monospace labels with tight padding
+                    if (labelStyle === 'compact') {
+                      const compactFont = LABEL_FONTS.compact;
+                      const labelFontSize = 9;
+                      const badgeFontSize = 7;
+                      const charWidth = 5.5;
+                      const padX = 4;
+                      const padY = 2;
+                      const labelW = edge.label ? edge.label.length * charWidth + padX * 2 : 0;
+                      const labelH = edge.label ? 14 : 0;
+                      const clfY = edge.label ? lp.y + 12 : lp.y;
+                      return <>
+                        {edge.label&&<g>
+                          <rect x={lp.x-labelW/2} y={lp.y-8} width={labelW} height={labelH} rx={7} fill={T.srf} stroke={T.ts} strokeWidth="0.5" style={{filter:"drop-shadow(0 1px 2px rgba(0,0,0,.3)"}}/>
+                          <text x={lp.x} y={lp.y+2} textAnchor="middle" fill={isSel?T.sel:T.ts} fontSize={labelFontSize} fontFamily={compactFont} fontWeight="500">{edge.label}</text>
+                        </g>}
+                        {clf&&<g>
+                          <rect x={lp.x-clf.label.length*2.5-4} y={clfY-6} width={clf.label.length*5+8} height={12} rx={6} fill={clf.color} style={{filter:"drop-shadow(0 1px 1px rgba(0,0,0,.2)"}}/>
+                          <text x={lp.x} y={clfY+2} textAnchor="middle" fill="white" fontSize={badgeFontSize} fontFamily={compactFont} fontWeight="700">{clf.label}</text>
+                        </g>}
+                      </>;
+                    }
+
+                    // MINIMAL MODE: Show abbreviated label, full details on hover via title
+                    if (labelStyle === 'minimal') {
+                      const abbrev = edge.label ? (edge.label.length > 6 ? edge.label.slice(0,5)+'…' : edge.label) : '';
+                      const tooltipParts = [];
+                      if (edge.label) tooltipParts.push(edge.label);
+                      if (clf) tooltipParts.push(`Classification: ${clf.name}`);
+                      const fromNode = nodes.find(n=>n.id===edge.from) || groups.find(g=>g.id===edge.from);
+                      const toNode = nodes.find(n=>n.id===edge.to) || groups.find(g=>g.id===edge.to);
+                      if (fromNode && toNode) tooltipParts.push(`${fromNode.label||fromNode.id} → ${toNode.label||toNode.id}`);
+                      const tooltip = tooltipParts.join('\n');
+
+                      return <g>
+                        <title>{tooltip}</title>
+                        {abbrev&&<g>
+                          <rect x={lp.x-abbrev.length*3-4} y={lp.y-7} width={abbrev.length*6+8} height={12} rx={6} fill={T.srf} stroke={T.ts} strokeWidth="0.5" opacity="0.8"/>
+                          <text x={lp.x} y={lp.y+2} textAnchor="middle" fill={isSel?T.sel:T.tm} fontSize="8" fontFamily={LABEL_FONTS.minimal} fontWeight="500">{abbrev}</text>
+                        </g>}
+                        {clf&&!abbrev&&<g>
+                          <circle cx={lp.x} cy={lp.y} r={4} fill={clf.color} opacity="0.7"/>
+                        </g>}
+                      </g>;
+                    }
+
+                    // LEGEND MODE: Numbered circle, no inline text
+                    if (labelStyle === 'legend') {
+                      const circleNums = ['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩','⑪','⑫','⑬','⑭','⑮','⑯','⑰','⑱','⑲','⑳'];
+                      const numChar = edgeNum && edgeNum <= 20 ? circleNums[edgeNum-1] : String(edgeNum);
+                      const clfColor = clf ? clf.color : T.ts;
+                      return <g>
+                        <circle cx={lp.x} cy={lp.y} r={9} fill={T.srf} stroke={clfColor} strokeWidth="1.5" style={{filter:"drop-shadow(0 1px 2px rgba(0,0,0,.3)"}}/>
+                        <text x={lp.x} y={lp.y+4} textAnchor="middle" fill={clfColor} fontSize="11" fontFamily={LABEL_FONTS.legend} fontWeight="600">{numChar}</text>
+                      </g>;
+                    }
+
+                    // Default (fallback to original)
+                    return <>
+                      {edge.label&&<g><rect x={lp.x-edge.label.length*3.5-8} y={lp.y-10} width={edge.label.length*7+16} height={18} rx={9} fill={T.srf} stroke={T.ts} strokeWidth="1" style={{filter:"drop-shadow(0 1px 3px rgba(0,0,0,.4))"}}/><text x={lp.x} y={lp.y+4} textAnchor="middle" fill={isSel?T.sel:T.ts} fontSize="10" fontFamily="Consolas,monospace" fontWeight="600">{edge.label}</text></g>}
+                      {clf&&<g><rect x={lp.x-clf.label.length*3-6} y={clfBadgeY-8} width={clf.label.length*6+12} height={14} rx={7} fill={clf.color} style={{filter:"drop-shadow(0 1px 2px rgba(0,0,0,.3))"}}/><text x={lp.x} y={clfBadgeY+2} textAnchor="middle" fill="white" fontSize="8" fontFamily="Consolas,monospace" fontWeight="700">{clf.label}</text></g>}
+                    </>;
+                  };
+
                   return (
                     <g key={edge.id} style={{cursor:"pointer"}} onClick={e=>{e.stopPropagation();setSel({kind:"edge",id:edge.id});}}>
                       <path d={p} fill="none" stroke="transparent" strokeWidth="14"/>
                       <path d={p} fill="none" stroke={edgeStroke} strokeWidth={edgeWidth} strokeDasharray={edgeDash} markerEnd={isSel?"url(#ahS)":"url(#ah)"} opacity={edgeOpacity}/>
-                      {edge.label&&<g><rect x={lp.x-edge.label.length*3.5-8} y={lp.y-10} width={edge.label.length*7+16} height={18} rx={9} fill={T.srf} stroke={T.ts} strokeWidth="1" style={{filter:"drop-shadow(0 1px 3px rgba(0,0,0,.4))"}}/><text x={lp.x} y={lp.y+4} textAnchor="middle" fill={isSel?T.sel:T.ts} fontSize="10" fontFamily="Consolas,monospace" fontWeight="600">{edge.label}</text></g>}
-                      {clf&&<g><rect x={lp.x-clf.label.length*3-6} y={clfBadgeY-8} width={clf.label.length*6+12} height={14} rx={7} fill={clf.color} style={{filter:"drop-shadow(0 1px 2px rgba(0,0,0,.3))"}}/><text x={lp.x} y={clfBadgeY+2} textAnchor="middle" fill="white" fontSize="8" fontFamily="Consolas,monospace" fontWeight="700">{clf.label}</text></g>}
+                      {renderEdgeLabel()}
                     </g>
                   );
                 });
@@ -1840,7 +1929,7 @@ Architecture: ${input.trim()}`;
             </div>;
           })()}
           {viewMode==="component"&&!drillInNode&&hasData&&<div style={{position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",textAlign:"center",padding:24,background:T.hbg,border:`1px solid ${T.bdr}`,borderRadius:12,boxShadow:"0 8px 32px rgba(0,0,0,.3)",pointerEvents:"none"}}><div style={{fontSize:24,marginBottom:8,opacity:.5}}>*</div><div style={{fontSize:12,fontWeight:600,color:T.text,marginBottom:4}}>Component View</div><div style={{fontSize:10,color:T.tm}}>Click on any node to drill into its components</div></div>}
-          {editMode&&(selNode||selGroup||selEdge)&&<div style={{position:"absolute",top:8,right:10,width:195,background:T.hbg,border:`1px solid ${T.bdr}`,borderRadius:10,padding:11,boxShadow:"0 8px 32px rgba(0,0,0,.3)",backdropFilter:"blur(12px)"}}>
+          {editMode&&(selNode||selGroup||selEdge)&&<div data-testid="properties-panel" style={{position:"absolute",top:8,right:10,width:195,background:T.hbg,border:`1px solid ${T.bdr}`,borderRadius:10,padding:11,boxShadow:"0 8px 32px rgba(0,0,0,.3)",backdropFilter:"blur(12px)"}}>
             {selNode&&<><div style={{display:"flex",alignItems:"center",gap:7,marginBottom:8}}><img src={ICONS[selNode.type]} width={22} height={22} alt=""/><div style={{fontSize:10,fontWeight:600}}>{ALL[selNode.type].name}</div></div><label style={pl}>Business Name</label><input value={selNode.label} onChange={e=>rename(sel.id,"node",e.target.value)} style={pi(T)}/><label style={pl}>Technical Name</label><input value={selNode.techName||""} onChange={e=>renameTech(sel.id,e.target.value)} style={{...pi(T),color:"#a5b4fc"}}/><label style={pl}>Edge label</label><input value={edgeLbl} onChange={e=>setEdgeLbl(e.target.value)} placeholder="HTTPS, 443" style={pi(T)}/><label style={pl}>Line</label><div style={{display:"flex",gap:3,marginBottom:4,flexWrap:"wrap"}}>{["solid","dashed","trust_boundary"].map(s=> <button key={s} onClick={()=>setEdgeStyle(s)} style={{flex:s==="trust_boundary"?"1 1 100%":1,padding:"3px 0",background:edgeStyle===s?(s==="trust_boundary"?"rgba(220,38,38,.1)":"rgba(59,130,246,.1)"):"transparent",border:`1px solid ${edgeStyle===s?(s==="trust_boundary"?"#dc262650":T.sel+"50"):T.bdr}`,borderRadius:4,color:edgeStyle===s?(s==="trust_boundary"?"#dc2626":T.sel):T.tm,cursor:"pointer",fontSize:8,fontWeight:600}}>{s==="trust_boundary"?"Trust Boundary":s.charAt(0).toUpperCase()+s.slice(1)}</button>)}</div><div style={{display:"flex",gap:4,marginTop:5}}><button onClick={()=>setConnectFrom(sel.id)} style={{...pa,background:"rgba(59,130,246,.1)",color:"#60a5fa"}}>⟶ Connect</button><button onClick={delSel} style={{...pa,background:"rgba(239,68,68,.08)",color:"#f87171"}}>✕</button></div></>}
             {selGroup&&<><label style={pl}>Label</label><input value={selGroup.label} onChange={e=>rename(sel.id,"group",e.target.value)} style={pi(T)}/><label style={pl}>Compliance Zone</label><select value={selGroup.compliance||""} onChange={e=>{pushHistory();setGroups(p=>p.map(g=>g.id===sel.id?{...g,compliance:e.target.value||undefined}:g));}} style={{...pi(T),cursor:"pointer"}}><option value="">None</option>{Object.entries(COMPLIANCE_ZONES).map(([k,v])=><option key={k} value={k}>{v.name}</option>)}<option value="custom">Custom...</option></select><label style={pl}>Edge label</label><input value={edgeLbl} onChange={e=>setEdgeLbl(e.target.value)} placeholder="VNet Peering" style={pi(T)}/><label style={pl}>Line</label><div style={{display:"flex",gap:3,marginBottom:4,flexWrap:"wrap"}}>{["solid","dashed","trust_boundary"].map(s=> <button key={s} onClick={()=>setEdgeStyle(s)} style={{flex:s==="trust_boundary"?"1 1 100%":1,padding:"3px 0",background:edgeStyle===s?(s==="trust_boundary"?"rgba(220,38,38,.1)":"rgba(59,130,246,.1)"):"transparent",border:`1px solid ${edgeStyle===s?(s==="trust_boundary"?"#dc262650":T.sel+"50"):T.bdr}`,borderRadius:4,color:edgeStyle===s?(s==="trust_boundary"?"#dc2626":T.sel):T.tm,cursor:"pointer",fontSize:8,fontWeight:600}}>{s==="trust_boundary"?"Trust Boundary":s.charAt(0).toUpperCase()+s.slice(1)}</button>)}</div><div style={{display:"flex",gap:4,marginTop:5}}><button onClick={()=>setConnectFrom(sel.id)} style={{...pa,background:"rgba(59,130,246,.1)",color:"#60a5fa"}}>⟶ Connect</button><button onClick={delSel} style={{...pa,background:"rgba(239,68,68,.08)",color:"#f87171"}}>✕</button></div></>}
             {selEdge&&<><label style={pl}>Label</label><input value={selEdge.label} onChange={e=>{pushHistory();setEdges(p=>p.map(ed=>ed.id===sel.id?{...ed,label:e.target.value}:ed));}} style={pi(T)}/><label style={pl}>Style</label><div style={{display:"flex",gap:3,flexWrap:"wrap"}}>{["solid","dashed","trust_boundary"].map(s=> <button key={s} onClick={()=>{pushHistory();setEdges(p=>p.map(ed=>ed.id===sel.id?{...ed,style:s}:ed));}} style={{flex:s==="trust_boundary"?"1 1 100%":1,padding:"3px 0",background:selEdge.style===s?(s==="trust_boundary"?"rgba(220,38,38,.1)":"rgba(59,130,246,.1)"):"transparent",border:`1px solid ${selEdge.style===s?(s==="trust_boundary"?"#dc262650":T.sel+"50"):T.bdr}`,borderRadius:4,color:selEdge.style===s?(s==="trust_boundary"?"#dc2626":T.sel):T.tm,cursor:"pointer",fontSize:8,fontWeight:600}}>{s==="trust_boundary"?"Trust Boundary":s.charAt(0).toUpperCase()+s.slice(1)}</button>)}</div><label style={pl}>Data Classification</label><select value={selEdge.classification||""} onChange={e=>{pushHistory();setEdges(p=>p.map(ed=>ed.id===sel.id?{...ed,classification:e.target.value||undefined}:ed));}} style={{...pi(T),cursor:"pointer"}}><option value="">None</option>{Object.entries(DATA_CLASSIFICATIONS).map(([k,v])=><option key={k} value={k}>{v.name}</option>)}</select><button onClick={delSel} style={{...pa,width:"100%",marginTop:5,background:"rgba(239,68,68,.08)",color:"#f87171"}}>✕ Delete</button></>}
@@ -1889,7 +1978,31 @@ Architecture: ${input.trim()}`;
                   </div>;})}
                 </div>
               </>;})()}
-              {usedGroupTypes.length===0&&usedEdgeStyles.length===0&&<div style={{fontSize:9,color:T.tm,fontStyle:"italic"}}>No groups or edges in diagram</div>}
+              {/* Legend mode: Show numbered edge connection list */}
+              {(()=>{
+                if (labelStyle !== 'legend') return null;
+                const labeledEdges = edges.filter(e => e.label || e.classification);
+                if (labeledEdges.length === 0) return null;
+                const circleNums = ['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩','⑪','⑫','⑬','⑭','⑮','⑯','⑰','⑱','⑲','⑳'];
+                return <>
+                  <div style={{fontSize:8,color:T.tm,textTransform:"uppercase",letterSpacing:"1px",marginBottom:4,marginTop:10}}>Connections</div>
+                  <div style={{display:"flex",flexDirection:"column",gap:3,maxHeight:120,overflowY:"auto"}}>
+                    {labeledEdges.map((edge,i)=>{
+                      const fromItem = nodes.find(n=>n.id===edge.from) || groups.find(g=>g.id===edge.from);
+                      const toItem = nodes.find(n=>n.id===edge.to) || groups.find(g=>g.id===edge.to);
+                      const fromLabel = fromItem?.label || edge.from;
+                      const toLabel = toItem?.label || edge.to;
+                      const clf = edge.classification && DATA_CLASSIFICATIONS[edge.classification];
+                      const numChar = i < 20 ? circleNums[i] : String(i+1);
+                      return <div key={edge.id} style={{display:"flex",alignItems:"flex-start",gap:4,fontSize:8,color:T.ts,lineHeight:1.3}}>
+                        <span style={{color:clf?clf.color:T.ts,fontWeight:600,flexShrink:0}}>{numChar}</span>
+                        <span style={{wordBreak:"break-word"}}>{fromLabel} → {toLabel}{edge.label?`: ${edge.label}`:""}{clf?` (${clf.label})`:""}</span>
+                      </div>;
+                    })}
+                  </div>
+                </>;
+              })()}
+              {usedGroupTypes.length===0&&usedEdgeStyles.length===0&&labelStyle!=='legend'&&<div style={{fontSize:9,color:T.tm,fontStyle:"italic"}}>No groups or edges in diagram</div>}
             </div>;
           })()}
           <div style={{position:"absolute",bottom:12,right:12,display:"flex",alignItems:"center",gap:0,background:T.hbg,border:`1px solid ${T.bdr}`,borderRadius:8,overflow:"hidden",boxShadow:"0 2px 8px rgba(0,0,0,.2)",zIndex:20}}>

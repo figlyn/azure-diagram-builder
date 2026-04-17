@@ -651,7 +651,7 @@ test.describe('WAF-23: Compliance zone annotations on groups', () => {
     await expect(page.locator('label').filter({ hasText: 'Compliance Zone' })).toBeVisible();
 
     // Look for compliance dropdown
-    const dropdown = page.locator('select').first();
+    const dropdown = page.locator('[data-testid="properties-panel"] select').first();
     await expect(dropdown).toBeVisible();
   });
 
@@ -673,7 +673,7 @@ test.describe('WAF-23: Compliance zone annotations on groups', () => {
     await page.waitForTimeout(100);
 
     // Get the compliance dropdown (first select element in properties panel)
-    const dropdown = page.locator('select').first();
+    const dropdown = page.locator('[data-testid="properties-panel"] select').first();
 
     // Check all options are present
     await expect(dropdown.locator('option[value=""]')).toHaveText('None');
@@ -826,7 +826,7 @@ test.describe('WAF-23: Compliance zone annotations on groups', () => {
     await page.waitForTimeout(100);
 
     // Select "pci" from dropdown
-    const dropdown = page.locator('select').first();
+    const dropdown = page.locator('[data-testid="properties-panel"] select').first();
     await dropdown.selectOption('pci');
     // Wait for localStorage save (has 500ms debounce + processing time)
     await page.waitForTimeout(700);
@@ -948,7 +948,7 @@ test.describe('WAF-23: Compliance zone annotations on groups', () => {
     await page.waitForTimeout(100);
 
     // Select "None" from dropdown
-    const dropdown = page.locator('select').first();
+    const dropdown = page.locator('[data-testid="properties-panel"] select').first();
     await dropdown.selectOption('');
     await page.waitForTimeout(100);
 
