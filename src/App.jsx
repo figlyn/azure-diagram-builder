@@ -1581,43 +1581,121 @@ Architecture: ${input.trim()}`;
                   });
                 });
 
-                // Label collision avoidance: calculate all positions first, then adjust overlaps
-                const labelBoxes = []; // {x, y, w, h, edgeId}
+                // Label collision avoidance: single-pass with actual positions
+                // Step 1: Compute all actual label positions (using bendPoints where available)
+                const labelInfos = []; // {edgeId, baseX, baseY, labelW, labelH, badgeH, isHorizontal}
                 const labelPositions = {}; // edgeId -> {x, y}
-                const MIN_LABEL_DIST = 24; // minimum distance between label centers
 
-                // First pass: calculate default positions and detect collisions
-                edges.forEach(edge=>{
-                  // Skip edges that didn't make it into portMap (hidden or internal to collapsed group)
-                  const info=portMap[edge.id];if(!info)return;
-                  if (!edge.label) return;
-                  const {srcPort,tgtPort,sA,tA}=info;
-                  const o=edgeOff[edge.id]||{dx:0,dy:0};
-                  const sp={x:sA.ports[srcPort].x+o.dx,y:sA.ports[srcPort].y+o.dy};
-                  const tp=tA.ports[tgtPort];
-                  let lp=edgeLabelXY(srcPort,tgtPort,sp,tp);
-                  const labelW = edge.label.length*7+16;
-                  const labelH = 18;
+                // Also collect node label positions to avoid overlapping with resource names
+                const nodeBoxes = nodes.filter(n => !isHiddenByCollapsedAncestor(n.id)).map(nd => {
+                  const label = nd.label || '';
+                  const labelW = Math.min(label.length * 6, 120);
+                  const labelY = nd.y + 40;
+                  return { x: nd.x, y: labelY, w: labelW, h: 14, type: 'node' };
+                });
 
-                  // Check for collision with existing labels and try alternate positions
-                  const offsets = [{dx:0,dy:0},{dx:0,dy:-22},{dx:0,dy:22},{dx:30,dy:0},{dx:-30,dy:0},{dx:20,dy:-18},{dx:-20,dy:-18},{dx:20,dy:18},{dx:-20,dy:18}];
+                edges.forEach(edge => {
+                  const info = portMap[edge.id]; if (!info) return;
+                  if (!edge.label && !edge.classification) return;
+
+                  const { srcPort, tgtPort, sA, tA } = info;
+                  const o = edgeOff[edge.id] || { dx: 0, dy: 0 };
+                  const sp = { x: sA.ports[srcPort].x + o.dx, y: sA.ports[srcPort].y + o.dy };
+                  const tp = tA.ports[tgtPort];
+                  const isRedirected = info.isRedirected;
+
+                  let baseX, baseY, isHorizontal = true;
+
+                  // Use bendPoints if available (same logic as render pass)
+                  if (edge.bendPoints && edge.bendPoints.length >= 2 && !isRedirected) {
+                    let pts = avoidContainers(edge.bendPoints, groups, edge.from, edge.to);
+                    // Find longest segment for label placement
+                    let maxLen = 0, bestMid = { x: pts[0].x, y: pts[0].y }, bestHoriz = true;
+                    for (let i = 0; i < pts.length - 1; i++) {
+                      const p1 = pts[i], p2 = pts[i + 1];
+                      const len = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+                      if (len > maxLen) {
+                        maxLen = len;
+                        bestMid = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
+                        bestHoriz = Math.abs(p2.x - p1.x) > Math.abs(p2.y - p1.y);
+                      }
+                    }
+                    baseX = bestMid.x;
+                    // Smart Y offset based on edge direction
+                    baseY = bestHoriz ? bestMid.y - 15 : bestMid.y;
+                    isHorizontal = bestHoriz;
+                  } else {
+                    // Fall back to port-based calculation
+                    const lp = edgeLabelXY(srcPort, tgtPort, sp, tp);
+                    baseX = lp.x;
+                    baseY = lp.y;
+                    isHorizontal = srcPort === 'right' || srcPort === 'left';
+                  }
+
+                  const labelW = edge.label ? edge.label.length * 7 + 16 : 0;
+                  const labelH = edge.label ? 18 : 0;
+                  const clf = edge.classification && DATA_CLASSIFICATIONS[edge.classification];
+                  const badgeH = clf ? 14 : 0;
+
+                  labelInfos.push({ edgeId: edge.id, baseX, baseY, labelW, labelH, badgeH, isHorizontal, clf });
+                });
+
+                // Step 2: Run collision detection with expanded offset grid
+                const occupiedBoxes = [...nodeBoxes]; // Start with node labels
+
+                // Spiral search pattern - more positions, expanding outward
+                const generateOffsets = (isHoriz) => {
+                  const offsets = [{ dx: 0, dy: 0 }];
+                  const distances = [20, 35, 50, 70];
+                  for (const d of distances) {
+                    // Prefer perpendicular offsets to edge direction
+                    if (isHoriz) {
+                      offsets.push({ dx: 0, dy: -d }, { dx: 0, dy: d });
+                      offsets.push({ dx: d, dy: -d/2 }, { dx: -d, dy: -d/2 });
+                      offsets.push({ dx: d, dy: d/2 }, { dx: -d, dy: d/2 });
+                    } else {
+                      offsets.push({ dx: -d, dy: 0 }, { dx: d, dy: 0 });
+                      offsets.push({ dx: -d/2, dy: -d }, { dx: -d/2, dy: d });
+                      offsets.push({ dx: d/2, dy: -d }, { dx: d/2, dy: d });
+                    }
+                  }
+                  return offsets;
+                };
+
+                labelInfos.forEach(({ edgeId, baseX, baseY, labelW, labelH, badgeH, isHorizontal, clf }) => {
+                  const offsets = generateOffsets(isHorizontal);
+                  const totalH = labelH + (badgeH ? badgeH + 4 : 0); // 4px gap between label and badge
+                  const checkW = Math.max(labelW, clf ? clf.label.length * 6 + 12 : 0);
+
+                  let finalX = baseX, finalY = baseY;
+
                   for (const off of offsets) {
-                    const testX = lp.x + off.dx;
-                    const testY = lp.y + off.dy;
-                    const hasCollision = labelBoxes.some(box => {
+                    const testX = baseX + off.dx;
+                    const testY = baseY + off.dy;
+
+                    const hasCollision = occupiedBoxes.some(box => {
                       const dx = Math.abs(testX - box.x);
-                      const dy = Math.abs(testY - box.y);
-                      // Symmetric collision: check both X and Y axis overlap with padding
-                      return dx < (labelW/2 + box.w/2 + 6) && dy < (labelH/2 + box.h/2 + 4);
+                      const dy = Math.abs(testY + totalH/2 - labelH/2 - box.y);
+                      return dx < (checkW/2 + box.w/2 + 8) && dy < (totalH/2 + box.h/2 + 6);
                     });
+
                     if (!hasCollision) {
-                      lp = {x: testX, y: testY};
+                      finalX = testX;
+                      finalY = testY;
                       break;
                     }
                   }
 
-                  labelPositions[edge.id] = lp;
-                  labelBoxes.push({x: lp.x, y: lp.y, w: labelW, h: labelH, edgeId: edge.id});
+                  labelPositions[edgeId] = { x: finalX, y: finalY };
+                  // Add both label and badge to occupied boxes
+                  if (labelH > 0) {
+                    occupiedBoxes.push({ x: finalX, y: finalY, w: labelW, h: labelH, type: 'label' });
+                  }
+                  if (badgeH > 0) {
+                    const badgeY = labelH > 0 ? finalY + 16 : finalY;
+                    const badgeW = clf.label.length * 6 + 12;
+                    occupiedBoxes.push({ x: finalX, y: badgeY, w: badgeW, h: badgeH, type: 'badge' });
+                  }
                 });
 
                 return edges.map(edge=>{
