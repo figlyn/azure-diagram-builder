@@ -4,32 +4,32 @@
 
 ## Current Feature
 
-**Feature:** Edge/Arrow Routing Improvements
-**Phase:** Implementation complete
+**Feature:** Edge Label Visualization Overhaul
+**Phase:** Design - Developing multiple approaches for comparison
 **Started:** 2026-04-17
 
 ## Phase Checklist
 
 ### Design
-- [x] Architect: Solution research
-- [x] Architect: Technical approach
-- [x] UX: User flow
-- [x] UX: Interaction design
+- [x] Architect: Research best practices (draw.io, Visio, yFiles, C4)
+- [ ] Developer: Approach A - Hover-to-reveal with minimal labels
+- [ ] Developer: Approach B - Legend-centric with edge styling only
+- [ ] Developer: Approach C - Engineering font with compact sizing
+- [ ] User: Compare approaches and select
 
 ### Specification
-- [x] Technical spec
-- [x] Test cases defined
-- [x] Acceptance criteria
-- [x] User approval
+- [ ] Technical spec for chosen approach
+- [ ] Test cases defined
+- [ ] Acceptance criteria
 
 ### Implementation
-- [x] Feature code
-- [x] Playwright tests
-- [x] Build passes
+- [ ] Feature code
+- [ ] Playwright tests
+- [ ] Build passes
 
 ### Validation
-- [x] Tests pass
-- [x] UX review (user confirmed "Works")
+- [ ] Tests pass
+- [ ] UX review
 - [ ] Code review
 
 ### Staging
@@ -48,46 +48,41 @@ None
 
 ## Notes
 
-- Edge routing overhaul complete with 3 major fixes.
-- Full Playwright suite is green at `171/171`.
-- `npm run build` passes.
-- User tested and confirmed all fixes work.
+### Previous Work Committed
+- `b1159f2` fix: improve edge label collision detection system
+- Collision detection improved but still visually cluttered on complex diagrams
+- User requested multiple approaches for comparison
 
-### Session Achievements
+### Research Findings (from Architect agent)
 
-**Issue 1: Smart Port Selection (Visual Dominance)**
-- Replaced forced `top→top` U-shape routing with geometry-based port selection
-- Horizontal connections now use `right→left` ports
-- Vertical connections now use `top→bottom` ports
-- `avoidContainers()` now only routes around actual obstacles
-- Location: `src/App.jsx:768-795`
+**Key insights from professional tools:**
+1. draw.io: Multiple label positions, background boxes, manual repositioning
+2. Visio: Three-label connectors, path formulas, text backgrounds
+3. yFiles: Integrated labeling during layout, bitmap collision detection
+4. C4/Structurizr: Legend-centric, convention over configuration
 
-**Issue 2: Re-routing on Drag**
-- Clear `bendPoints` when node is dragged
-- Clear `bendPoints` when group is dragged (for all nodes inside)
-- Edges instantly recalculate paths on move
-- Location: `src/App.jsx:1274-1302`
-- Tests: `tests/edge-rerouting.spec.js` (+9 tests)
+**User requirements:**
+- Engineering fonts (monospace/technical appearance)
+- Reduced sizing
+- Multiple approaches to compare
 
-**Issue 3: Collapsed Group Edge Redirection**
-- Added `getCollapsedAncestor()` and `getVisibleEndpoint()` helpers
-- Edges to hidden nodes redirect to collapsed group boundary
-- Redirected edges styled with dashed pattern + reduced opacity
-- Internal edges (both endpoints in collapsed group) hidden
-- Location: `src/App.jsx:1372-1385, 1508-1662`
-- Tests: `tests/collapsed-edge-redirect.spec.js` (+11 tests)
+### Approaches to Develop
 
-### Verification
+**Approach A: Hover-to-Reveal**
+- Abbreviated labels by default (e.g., "HTTPS")
+- Full details on hover (tooltip with description, classification)
+- Minimal visual clutter on canvas
 
-- Full suite: `171/171` passing
-- Build: passing
-- User testing: confirmed working
+**Approach B: Legend-Centric**
+- No inline labels, only numbered/lettered edge markers
+- Comprehensive legend panel showing all connections
+- Edge styling (color, dash) indicates classification
 
-### Recommended Next Steps
-
-1. Start Phase 5 accessibility stories: WAF-40, WAF-41, WAF-42.
-2. Address residual QA risks in `QA-BUG-REPORT.md`.
-3. Deploy to staging for full review.
+**Approach C: Engineering Compact**
+- Monospace engineering font (JetBrains Mono, Fira Code, or similar)
+- Reduced font size (9-10px)
+- Tighter padding, pill-shaped backgrounds
+- All labels visible but more compact
 
 ---
 
