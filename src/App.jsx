@@ -377,7 +377,7 @@ function autoLayout(data) {
         color:tpl.color,border:tpl.border,dash:!!tpl.dash,depth:d,children:g.children||[],
         ...(g.collapsed?{collapsed:true}:{}),...(g.compliance?{compliance:g.compliance}:{})};
     }),
-    edges:edgeList.map((e,i)=>({id:`e${i}`,from:e.from,to:e.to,label:e.label||"",style:e.style||"solid",...(e.classification?{classification:e.classification}:{})})),
+    edges:edgeList.map((e,i)=>({id:`e${i}`,from:e.from,to:e.to,label:e.label||"",style:e.style||"solid",bendPoints:null,...(e.classification?{classification:e.classification}:{})})),
   };
 }
 
