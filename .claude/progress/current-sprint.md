@@ -121,6 +121,32 @@ None currently
 
 ## Session Achievements
 
+### 2026-04-17: Visualization Modes & Edge Routing
+
+**New Features:**
+- Label Style dropdown with 3 modes: Compact (monospace), Minimal (hover-to-reveal), Legend (numbered circles)
+- Icon Style dropdown with 3 modes: Standard (28px), Compact (22px), Minimal (16px)
+- Toolbar reorganized with logical groupings (View, Actions, Display, Export)
+
+**Bug Fixes:**
+- Fixed ELK edge routing coordinate mismatch (edges going off-canvas)
+- Fixed Layout button not triggering edge rerouting
+- Fixed toolbar layout breaking on smaller screens
+- Improved edge label collision detection
+
+**Tests:**
+- Added 12 new layout-rerouting tests
+- Full suite now at `183/183` passing
+
+**Commits:**
+- `b1159f2` fix: improve edge label collision detection system
+- `e8fd70d` feat: add 3 edge label visualization modes
+- `3360afa` feat: add 3 icon visualization modes
+- `4dea210` fix: reorganize toolbar with logical groupings
+- `cf6c406` fix: disable ELK edge routing to fix coordinate mismatch
+
+### Previous: Phase 4 C4 Model
+
 - Completed Phase 4 implementation and validation end-to-end.
 - Fixed WAF-33 component drill-in regressions and WAF-35 collapsed-group persistence / nested hiding behavior.
 - Hardened `tests/phase4-c4model.spec.js` from 48 to 51 passing scenarios with stronger behavior-focused assertions.
@@ -128,8 +154,6 @@ None currently
   - view mode toggle now exposes selected state with `aria-pressed`
   - collapse / expand control is a keyboard-accessible button
   - component drill-in dialog now focuses correctly, supports `Escape`, and restores focus on close
-- Verified full Playwright suite at `151/151` passing.
-- Verified production build still passes.
 - Added [QA-BUG-REPORT.md](/Users/vadim/Projects/mcp/azure-diagram-builder/QA-BUG-REPORT.md:1) to track resolved issues and remaining QA risks.
 
 ## Progress
@@ -140,8 +164,10 @@ Phase 2: 4/4 done  [██████████] ✅ COMPLETE (32 tests)
 Phase 3: 4/4 done  [██████████] ✅ COMPLETE (39 tests)
 Phase 4: 5/5 done  [██████████] ✅ COMPLETE (51 tests)
 Phase 5: 0/3 done  [░░░░░░░░░░]
+Extras:            [██████████] ✅ Visualization modes + fixes (32 tests)
 ─────────────────────────────────
-Total:  20/23 done [█████████░] 87%
+Total:  20/23 WAF done [█████████░] 87%
+Full test suite: 183 tests passing
 ```
 
 ## Recommended Resume Point

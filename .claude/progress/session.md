@@ -4,41 +4,40 @@
 
 ## Current Feature
 
-**Feature:** Edge Label Visualization Overhaul
-**Phase:** Design - Developing multiple approaches for comparison
+**Feature:** Visualization Modes & Edge Routing Fixes
+**Phase:** Complete - Deployed to staging
 **Started:** 2026-04-17
 
 ## Phase Checklist
 
 ### Design
 - [x] Architect: Research best practices (draw.io, Visio, yFiles, C4)
-- [ ] Developer: Approach A - Hover-to-reveal with minimal labels
-- [ ] Developer: Approach B - Legend-centric with edge styling only
-- [ ] Developer: Approach C - Engineering font with compact sizing
-- [ ] User: Compare approaches and select
-
-### Specification
-- [ ] Technical spec for chosen approach
-- [ ] Test cases defined
-- [ ] Acceptance criteria
+- [x] Developer: Approach A - Hover-to-reveal with minimal labels (Minimal mode)
+- [x] Developer: Approach B - Legend-centric with edge styling only (Legend mode)
+- [x] Developer: Approach C - Engineering font with compact sizing (Compact mode)
+- [x] Developer: Icon visualization modes (Standard, Compact, Minimal)
+- [x] User: Testing approaches on staging
 
 ### Implementation
-- [ ] Feature code
-- [ ] Playwright tests
-- [ ] Build passes
+- [x] Label Style dropdown (Compact, Minimal, Legend)
+- [x] Icon Style dropdown (Standard, Compact, Minimal)
+- [x] Toolbar reorganization with logical groups
+- [x] ELK edge routing coordinate fix
+- [x] Layout button rerouting fix
+- [x] Playwright tests (183 total)
+- [x] Build passes
 
 ### Validation
-- [ ] Tests pass
-- [ ] UX review
-- [ ] Code review
+- [x] All 183 tests pass
+- [x] User confirmed "works well"
 
 ### Staging
-- [ ] Deployed to staging.nwgrm.org
-- [ ] QA smoke test
-- [ ] UX approved
+- [x] Deployed to staging.nwgrm.org
+- [x] QA smoke test (12 layout-rerouting tests)
+- [x] User approved
 
 ### Production
-- [ ] Deployed to azure.nwgrm.org
+- [ ] Deploy to azure.nwgrm.org
 - [ ] Smoke test passed
 - [ ] Release tagged
 
@@ -46,43 +45,49 @@
 
 None
 
-## Notes
+## Session Commits
 
-### Previous Work Committed
-- `b1159f2` fix: improve edge label collision detection system
-- Collision detection improved but still visually cluttered on complex diagrams
-- User requested multiple approaches for comparison
+| Commit | Description |
+|--------|-------------|
+| `b1159f2` | fix: improve edge label collision detection system |
+| `d634721` | docs: update session with edge label visualization research |
+| `e8fd70d` | feat: add 3 edge label visualization modes for comparison |
+| `3360afa` | feat: add 3 icon visualization modes for comparison |
+| `4dea210` | fix: reorganize toolbar with logical groupings |
+| `2ad3d02` | fix: clear bendPoints in autoLayout fallback |
+| `cf6c406` | fix: disable ELK edge routing to fix coordinate mismatch |
 
-### Research Findings (from Architect agent)
+## Features Implemented
 
-**Key insights from professional tools:**
-1. draw.io: Multiple label positions, background boxes, manual repositioning
-2. Visio: Three-label connectors, path formulas, text backgrounds
-3. yFiles: Integrated labeling during layout, bitmap collision detection
-4. C4/Structurizr: Legend-centric, convention over configuration
+### Label Style Modes
+| Mode | Font | Size | Behavior |
+|------|------|------|----------|
+| **Compact** | JetBrains Mono | 9px | All labels visible, tight padding |
+| **Minimal** | Inter | - | Abbreviated labels, hover for details |
+| **Legend** | Inter | - | Numbered circles, list in legend panel |
 
-**User requirements:**
-- Engineering fonts (monospace/technical appearance)
-- Reduced sizing
-- Multiple approaches to compare
+### Icon Style Modes
+| Mode | Icon | Node | Label |
+|------|------|------|-------|
+| **Standard** | 28px | 56px | 9px |
+| **Compact** | 22px | 44px | 8px |
+| **Minimal** | 16px | 32px | 7px |
 
-### Approaches to Develop
+### Bug Fixes
+- ELK edge routing coordinate mismatch (edges going off-canvas)
+- Layout button not triggering edge rerouting
+- Toolbar layout breaking on smaller screens
 
-**Approach A: Hover-to-Reveal**
-- Abbreviated labels by default (e.g., "HTTPS")
-- Full details on hover (tooltip with description, classification)
-- Minimal visual clutter on canvas
+## Test Coverage
 
-**Approach B: Legend-Centric**
-- No inline labels, only numbered/lettered edge markers
-- Comprehensive legend panel showing all connections
-- Edge styling (color, dash) indicates classification
+- **183 total tests** (12 new layout-rerouting tests)
+- All passing
 
-**Approach C: Engineering Compact**
-- Monospace engineering font (JetBrains Mono, Fira Code, or similar)
-- Reduced font size (9-10px)
-- Tighter padding, pill-shaped backgrounds
-- All labels visible but more compact
+## Recommended Next Steps
+
+1. Deploy to production (azure.nwgrm.org)
+2. Continue with Phase 5 accessibility (WAF-40, WAF-41, WAF-42)
+3. Address residual QA risks in QA-BUG-REPORT.md
 
 ---
 
