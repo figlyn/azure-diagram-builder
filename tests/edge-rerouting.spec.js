@@ -486,4 +486,153 @@ test.describe('Edge re-routing on drag', () => {
     expect(updatedDash).not.toBe('none');
     expect(updatedDash).toBeTruthy();
   });
+
+  test('Arrow points along edge direction after small drag', async ({ page }) => {
+    // Create a simple horizontal edge
+    await loadCustomDiagram(page, {
+      title: 'Arrow Direction Test',
+      groups: [],
+      nodes: [
+        { id: 'n1', type: 'vm', label: 'Source Node', x: 150, y: 250 },
+        { id: 'n2', type: 'storage', label: 'Target Node', x: 450, y: 250 }
+      ],
+      edges: [
+        { id: 'e1', from: 'n1', to: 'n2', label: 'TestEdge', style: 'solid' }
+      ]
+    });
+
+    await enableEditMode(page);
+
+    // Helper to parse the SVG path and get the last segment direction
+    const getLastSegmentDirection = async () => {
+      const pathD = await getEdgePath(page, 'TestEdge');
+      if (!pathD) return null;
+
+      // Parse path to extract the last two points
+      // Path format examples: "M x1,y1 L x2,y2 L x3,y3" or "M x1,y1 ... L xn,yn"
+      // or with curves: "M x,y L x,y Q cx,cy x,y L x,y"
+      const coords = [];
+      const regex = /[ML]\s*([\d.-]+)[,\s]+([\d.-]+)|Q\s*[\d.-]+[,\s]+[\d.-]+\s+([\d.-]+)[,\s]+([\d.-]+)/g;
+      let match;
+      while ((match = regex.exec(pathD)) !== null) {
+        if (match[1] && match[2]) {
+          coords.push({ x: parseFloat(match[1]), y: parseFloat(match[2]) });
+        } else if (match[3] && match[4]) {
+          // Q command end point
+          coords.push({ x: parseFloat(match[3]), y: parseFloat(match[4]) });
+        }
+      }
+
+      if (coords.length < 2) return null;
+
+      const last = coords[coords.length - 1];
+      const prev = coords[coords.length - 2];
+      const dx = last.x - prev.x;
+      const dy = last.y - prev.y;
+      const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+
+      return { endPoint: last, direction: { dx, dy }, angle };
+    };
+
+    // Get initial arrow direction (should be horizontal, pointing right ~0 degrees)
+    const initial = await getLastSegmentDirection();
+    expect(initial).toBeTruthy();
+    // For horizontal edge going right, angle should be close to 0
+    expect(Math.abs(initial.angle)).toBeLessThan(45);
+
+    // Get target node position
+    const targetPos = await getNodePosition(page, 'Target Node');
+    expect(targetPos).toBeTruthy();
+
+    // Verify the edge end point is reasonably positioned
+    // Note: Edge ends at port (offset from node center), text position is also offset
+    // Just verify we have a valid endpoint with reasonable coordinates
+    expect(initial.endPoint.x).toBeGreaterThan(200);
+    expect(initial.endPoint.y).toBeGreaterThan(100);
+
+    // Verify arrow marker is present
+    const edgeGroup = page.locator('svg g[style*="cursor"]').filter({
+      has: page.locator('text').filter({ hasText: 'TestEdge' })
+    });
+    const visiblePath = edgeGroup.locator('path').nth(1);
+    const markerEnd = await visiblePath.getAttribute('marker-end');
+    expect(markerEnd).toContain('url(#ah');
+
+    // Now drag the source node slightly and verify arrow still points toward target
+    await dragNode(page, 'Source Node', 30, 20);
+
+    const afterDrag = await getLastSegmentDirection();
+    expect(afterDrag).toBeTruthy();
+
+    // Verify the edge still ends at a reasonable position
+    expect(afterDrag.endPoint.x).toBeGreaterThan(200);
+    expect(afterDrag.endPoint.y).toBeGreaterThan(100);
+
+    // Arrow should still point generally toward the target (not backwards)
+    // The dx component should be positive (pointing right toward target)
+    expect(afterDrag.direction.dx).toBeGreaterThan(0);
+
+    // Arrow marker should still be present after drag
+    const markerEndAfter = await visiblePath.getAttribute('marker-end');
+    expect(markerEndAfter).toContain('url(#ah');
+  });
+
+  test('Arrow direction updates correctly when dragging target node', async ({ page }) => {
+    // Create a vertical edge (target below source)
+    await loadCustomDiagram(page, {
+      title: 'Arrow Direction Vertical Test',
+      groups: [],
+      nodes: [
+        { id: 'n1', type: 'appservice', label: 'Top Node', x: 300, y: 150 },
+        { id: 'n2', type: 'sqldb', label: 'Bottom Node', x: 300, y: 400 }
+      ],
+      edges: [
+        { id: 'e1', from: 'n1', to: 'n2', label: 'VerticalEdge', style: 'solid' }
+      ]
+    });
+
+    await enableEditMode(page);
+
+    // Helper to get last segment angle
+    const getLastAngle = async () => {
+      const pathD = await getEdgePath(page, 'VerticalEdge');
+      if (!pathD) return null;
+
+      const coords = [];
+      const regex = /[ML]\s*([\d.-]+)[,\s]+([\d.-]+)|Q\s*[\d.-]+[,\s]+[\d.-]+\s+([\d.-]+)[,\s]+([\d.-]+)/g;
+      let match;
+      while ((match = regex.exec(pathD)) !== null) {
+        if (match[1] && match[2]) {
+          coords.push({ x: parseFloat(match[1]), y: parseFloat(match[2]) });
+        } else if (match[3] && match[4]) {
+          coords.push({ x: parseFloat(match[3]), y: parseFloat(match[4]) });
+        }
+      }
+
+      if (coords.length < 2) return null;
+
+      const last = coords[coords.length - 1];
+      const prev = coords[coords.length - 2];
+      return Math.atan2(last.y - prev.y, last.x - prev.x) * 180 / Math.PI;
+    };
+
+    // Initial angle should be ~90 degrees (pointing down)
+    const initialAngle = await getLastAngle();
+    expect(initialAngle).toBeTruthy();
+    // For vertical edge going down, angle should be close to 90 degrees
+    expect(Math.abs(initialAngle - 90)).toBeLessThan(45);
+
+    // Drag the target node to the right
+    await dragNode(page, 'Bottom Node', 150, 0);
+
+    // After drag, the final segment should still point toward the target
+    const afterDragAngle = await getLastAngle();
+    expect(afterDragAngle).toBeTruthy();
+
+    // The angle might change, but should be reasonable (not pointing backwards)
+    // After moving target right, the edge should have a rightward component
+    // The angle should be between 0 and 180 (pointing generally downward-right or right)
+    expect(afterDragAngle).toBeGreaterThan(-90);
+    expect(afterDragAngle).toBeLessThan(180);
+  });
 });

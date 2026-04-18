@@ -75,268 +75,175 @@ const HIER_GROUPS={region:new Set(["rg","vnet_grp","onprem","custom","aks_grp"])
 const HIER_NODES={subnet_grp:new Set(["vm","vmss","aks","appservice","functions","container","nsg","lb","appgw"]),aks_grp:new Set(["container","acr","monitor","appinsights","loganalytics"])};
 
 const DEMOS={
-  hubspoke:{title:"Contoso Enterprise Network",
+  hubspoke:{title:"Contoso Hub-Spoke Network",
     layout:"hub-spoke",
-    layoutHints:{hubNode:"n3"},
+    layoutHints:{hubNode:"n1"},
     groups:[
-      {id:"g1",type:"onprem",label:"Corporate Data Center",children:["n1"]},
-      {id:"g2",type:"region",label:"Azure East US",children:["g3","g4","g5"]},
-      {id:"g3",type:"vnet_grp",label:"hub-vnet-001 (10.0.0.0/16)",children:["g6"]},
-      {id:"g4",type:"vnet_grp",label:"spoke-prod-vnet (10.1.0.0/16)",children:["g7"]},
-      {id:"g5",type:"vnet_grp",label:"spoke-dev-vnet (10.2.0.0/16)",children:["g8"]},
-      {id:"g6",type:"subnet_grp",label:"GatewaySubnet (10.0.0.0/27)",children:["n2","n3"]},
-      {id:"g7",type:"subnet_grp",label:"snet-prod-001 (10.1.1.0/24)",children:["n4","n5"]},
-      {id:"g8",type:"subnet_grp",label:"snet-dev-001 (10.2.1.0/24)",children:["n6","n7"]}
+      {id:"g1",type:"region",label:"Azure East US",children:["g2","g3","g4"]},
+      {id:"g2",type:"vnet_grp",label:"hub-vnet (10.0.0.0/16)",children:["n1","n2","n3"]},
+      {id:"g3",type:"vnet_grp",label:"spoke-prod (10.1.0.0/16)",children:["n4","n5"]},
+      {id:"g4",type:"vnet_grp",label:"spoke-dev (10.2.0.0/16)",children:["n6","n7"]}
     ],
     nodes:[
-      {id:"n1",type:"vm",label:"Domain Controllers",techName:"corp-dc-servers"},
-      {id:"n2",type:"vpngw",label:"Corporate Office Gateway",techName:"vgw-corp-hub-001",wafPillar:"SE"},
-      {id:"n3",type:"firewall",label:"Central Traffic Inspector",techName:"afw-hub-001",wafPillar:"SE"},
-      {id:"n4",type:"aks",label:"Product Catalog Platform",techName:"aks-spoke1-prod-001",wafPillar:"RE"},
-      {id:"n5",type:"appservice",label:"Employee Self-Service Portal",techName:"app-spoke2-prod-001",wafPillar:"PE"},
-      {id:"n6",type:"vm",label:"Legacy ERP Middleware",techName:"vm-spoke3-erp-001",wafPillar:"CO"},
-      {id:"n7",type:"sqldb",label:"Customer Master Database",techName:"sqldb-spoke1-prod-001",wafPillar:"CO"},
-      {id:"n8",type:"keyvault",label:"Shared Secrets Store",techName:"kv-hub-001",wafPillar:"SE"},
-      {id:"n9",type:"monitor",label:"Enterprise Operations Dashboard",techName:"log-hub-001",wafPillar:"OE"}
+      {id:"n1",type:"firewall",label:"Central Firewall",techName:"afw-hub-001",wafPillar:"SE"},
+      {id:"n2",type:"vpngw",label:"VPN Gateway",techName:"vpngw-hub-001",wafPillar:"SE"},
+      {id:"n3",type:"dns",label:"Private DNS",techName:"dns-hub-001"},
+      {id:"n4",type:"aks",label:"Production AKS",techName:"aks-prod-001",wafPillar:"RE"},
+      {id:"n5",type:"sqldb",label:"Production SQL",techName:"sql-prod-001",wafPillar:"RE"},
+      {id:"n6",type:"appservice",label:"Dev App Service",techName:"app-dev-001",wafPillar:"CO"},
+      {id:"n7",type:"cosmos",label:"Dev Cosmos DB",techName:"cosmos-dev-001",wafPillar:"CO"}
     ],
     edges:[
-      {from:"n1",to:"n2",label:"IPSec/IKEv2",style:"solid"},
-      {from:"n2",to:"n3",label:"Internal",style:"solid"},
-      {from:"n3",to:"n4",label:"VNet Peering",style:"solid"},
-      {from:"n3",to:"n6",label:"VNet Peering",style:"solid"},
-      {from:"n4",to:"n5",label:"Internal",style:"solid"},
-      {from:"n4",to:"n7",label:"TCP/1433",style:"dashed"},
-      {from:"n3",to:"n8",label:"Private Link",style:"dashed"},
-      {from:"n3",to:"n9",label:"Diagnostics",style:"dashed"}
+      {from:"n1",to:"n4",label:"VNet Peer",style:"solid"},
+      {from:"n1",to:"n5",label:"VNet Peer",style:"solid"},
+      {from:"n1",to:"n6",label:"VNet Peer",style:"dashed"},
+      {from:"n1",to:"n7",label:"VNet Peer",style:"dashed"},
+      {from:"n2",to:"n1",label:"Internal",style:"solid"},
+      {from:"n3",to:"n1",label:"DNS Fwd",style:"dashed"}
     ]
   },
-  aksbaseline:{title:"NorthwindTraders.com \u2014 Cloud-Native Storefront",
+  ntier:{title:"Northwind N-Tier Web App",
     layout:"hierarchical",
-    layoutHints:{tiers:["ingress","app","data"]},
+    layoutHints:{tiers:["web","app","data"]},
     groups:[
-      {id:"g1",type:"region",label:"East US",children:["g2","g3","n1"]},
-      {id:"g2",type:"vnet_grp",label:"aks-vnet-001 (10.0.0.0/16)",children:["g4","g5"]},
-      {id:"g3",type:"rg",label:"rg-aks-baseline",children:["n6","n7","n8","n9","n10"]},
-      {id:"g4",type:"subnet_grp",label:"snet-ingress (10.0.1.0/24)",children:["n2"]},
-      {id:"g5",type:"subnet_grp",label:"snet-nodepool (10.0.2.0/24)",children:["n3","n4","n5"]}
+      {id:"g1",type:"region",label:"East US",children:["g2","n1"]},
+      {id:"g2",type:"vnet_grp",label:"app-vnet (10.0.0.0/16)",children:["g3","g4","g5"]},
+      {id:"g3",type:"subnet_grp",label:"web-tier",children:["n2","n3"]},
+      {id:"g4",type:"subnet_grp",label:"app-tier",children:["n4","n5"]},
+      {id:"g5",type:"subnet_grp",label:"data-tier",children:["n6","n7","n8"]}
     ],
     nodes:[
-      {id:"n1",type:"frontdoor",label:"Global Storefront Accelerator",techName:"afd-ecom-prod-001",wafPillar:"PE"},
-      {id:"n2",type:"appgw",label:"Storefront Traffic Manager",techName:"agw-ecom-prod-001",wafPillar:"SE"},
-      {id:"n3",type:"aks",label:"Checkout & Catalog Services",techName:"aks-ecom-prod-001",wafPillar:"RE"},
-      {id:"n4",type:"container",label:"Workload Pods",techName:"workload-pods",wafPillar:"PE"},
-      {id:"n5",type:"nsg",label:"Node Pool NSG",techName:"nsg-nodepool-001",wafPillar:"SE"},
-      {id:"n6",type:"acr",label:"Release Artifact Registry",techName:"cr-ecom-prod-001",wafPillar:"OE"},
-      {id:"n7",type:"keyvault",label:"Payment Tokenization Vault",techName:"kv-ecom-prod-001",wafPillar:"SE"},
-      {id:"n8",type:"appinsights",label:"Shopper Experience Telemetry",techName:"appi-ecom-prod-001",wafPillar:"OE"},
-      {id:"n9",type:"monitor",label:"Platform Health Center",techName:"monitor-ecom-prod-001",wafPillar:"OE"},
-      {id:"n10",type:"loganalytics",label:"Storefront Diagnostics Workspace",techName:"log-ecom-prod-001",wafPillar:"OE"}
+      {id:"n1",type:"frontdoor",label:"Azure Front Door",techName:"afd-web-001",wafPillar:"PE"},
+      {id:"n2",type:"appgw",label:"App Gateway",techName:"agw-web-001",wafPillar:"SE"},
+      {id:"n3",type:"nsg",label:"Web NSG",techName:"nsg-web-001",wafPillar:"SE"},
+      {id:"n4",type:"appservice",label:"Web API",techName:"app-api-001",wafPillar:"RE"},
+      {id:"n5",type:"functions",label:"Background Jobs",techName:"func-jobs-001",wafPillar:"PE"},
+      {id:"n6",type:"sqldb",label:"Primary SQL",techName:"sql-main-001",wafPillar:"RE"},
+      {id:"n7",type:"redis",label:"Session Cache",techName:"redis-session-001",wafPillar:"PE"},
+      {id:"n8",type:"storage",label:"Blob Storage",techName:"st-assets-001",wafPillar:"CO"}
     ],
     edges:[
-      {from:"n1",to:"n2",label:"HTTPS/443",style:"solid"},
-      {from:"n2",to:"n3",label:"HTTP/80",style:"solid"},
-      {from:"n3",to:"n4",label:"Internal",style:"solid"},
-      {from:"n3",to:"n6",label:"Pull HTTPS",style:"solid"},
-      {from:"n3",to:"n7",label:"Managed Identity",style:"dashed"},
-      {from:"n3",to:"n8",label:"Telemetry",style:"dashed"},
-      {from:"n5",to:"n3",label:"Micro-segment",style:"dashed"},
-      {from:"n8",to:"n9",label:"Metrics",style:"dashed"},
-      {from:"n9",to:"n10",label:"Logs",style:"dashed"}
+      {from:"n1",to:"n2",label:"HTTPS",style:"solid"},
+      {from:"n2",to:"n4",label:"HTTP/80",style:"solid"},
+      {from:"n4",to:"n5",label:"Queue",style:"solid"},
+      {from:"n4",to:"n6",label:"SQL/TLS",style:"solid"},
+      {from:"n4",to:"n7",label:"Redis",style:"solid"},
+      {from:"n4",to:"n8",label:"Blob API",style:"dashed"},
+      {from:"n5",to:"n6",label:"SQL/TLS",style:"solid"},
+      {from:"n5",to:"n8",label:"Blob API",style:"dashed"}
     ]
   },
-  eventdriven:{title:"Tailwind Retail \u2014 Real-Time Order Processing",
+  eventpipeline:{title:"Tailwind Event Processing",
     layout:"flow",
     layoutHints:{flowDirection:"left-to-right"},
     groups:[
-      {id:"g1",type:"rg",label:"rg-tailwind-orders-prod",children:["g2","g3","g4"]},
-      {id:"g2",type:"custom",label:"Ingestion Layer",children:["n2","n3"]},
-      {id:"g3",type:"custom",label:"Processing Layer",children:["n4","n5"]},
-      {id:"g4",type:"custom",label:"Storage Layer",children:["n6","n7"]}
+      {id:"g1",type:"rg",label:"rg-events-prod",children:["g2","g3","g4"]},
+      {id:"g2",type:"custom",label:"Ingest",children:["n1","n2"]},
+      {id:"g3",type:"custom",label:"Process",children:["n3","n4","n5"]},
+      {id:"g4",type:"custom",label:"Store",children:["n6","n7","n8"]}
     ],
     nodes:[
-      {id:"n1",type:"apim",label:"Partner & Mobile API Gateway",techName:"apim-orders-prod-001",wafPillar:"SE"},
-      {id:"n2",type:"eventhub",label:"Order Event Stream",techName:"evh-orders-prod-001",wafPillar:"RE"},
-      {id:"n3",type:"servicebus",label:"Fulfillment Command Queue",techName:"sb-fulfill-prod-001",wafPillar:"RE"},
-      {id:"n4",type:"functions",label:"Inventory Reservation Engine",techName:"func-inventory-prod-001",wafPillar:"PE"},
-      {id:"n5",type:"streamanalytics",label:"Live Revenue Analytics",techName:"asa-revenue-prod-001",wafPillar:"PE"},
-      {id:"n6",type:"cosmos",label:"Order State Store",techName:"cosmos-orders-prod-001",wafPillar:"RE"},
-      {id:"n7",type:"storage",label:"Receipt & Invoice Archive",techName:"st-receipts-prod-001",wafPillar:"CO"}
+      {id:"n1",type:"apim",label:"API Gateway",techName:"apim-events-001",wafPillar:"SE"},
+      {id:"n2",type:"eventhub",label:"Event Hub",techName:"evh-ingest-001",wafPillar:"RE"},
+      {id:"n3",type:"functions",label:"Event Processor",techName:"func-process-001",wafPillar:"PE"},
+      {id:"n4",type:"streamanalytics",label:"Stream Analytics",techName:"asa-realtime-001",wafPillar:"PE"},
+      {id:"n5",type:"servicebus",label:"Service Bus",techName:"sb-commands-001",wafPillar:"RE"},
+      {id:"n6",type:"cosmos",label:"Hot Store",techName:"cosmos-hot-001",wafPillar:"PE"},
+      {id:"n7",type:"synapse",label:"Analytics",techName:"syn-analytics-001",wafPillar:"PE"},
+      {id:"n8",type:"storage",label:"Archive",techName:"st-archive-001",wafPillar:"CO"}
     ],
     edges:[
-      {from:"n1",to:"n2",label:"Publish AMQP",style:"solid"},
-      {from:"n1",to:"n3",label:"Route AMQP",style:"solid"},
-      {from:"n2",to:"n4",label:"Trigger",style:"solid"},
-      {from:"n3",to:"n4",label:"Trigger",style:"solid"},
-      {from:"n4",to:"n6",label:"Write",style:"solid"},
-      {from:"n5",to:"n2",label:"Query",style:"solid"},
-      {from:"n5",to:"n7",label:"Archive",style:"solid"},
-      {from:"n4",to:"n5",label:"Metrics",style:"dashed"}
+      {from:"n1",to:"n2",label:"Publish",style:"solid"},
+      {from:"n2",to:"n3",label:"Trigger",style:"solid"},
+      {from:"n2",to:"n4",label:"Stream",style:"solid"},
+      {from:"n3",to:"n5",label:"Command",style:"solid"},
+      {from:"n3",to:"n6",label:"Write",style:"solid"},
+      {from:"n4",to:"n6",label:"Aggregate",style:"solid"},
+      {from:"n4",to:"n7",label:"Analytics",style:"dashed"},
+      {from:"n3",to:"n8",label:"Archive",style:"dashed"}
     ]
   },
-  zerotrust:{title:"Woodgrove Financial \u2014 Zero-Trust Trading",
+  zerotrust:{title:"Woodgrove Zero-Trust",
     layout:"hierarchical",
-    layoutHints:{tiers:["identity","network","app"]},
+    layoutHints:{tiers:["identity","perimeter","workload"]},
     groups:[
-      {id:"g1",type:"custom",label:"Identity Perimeter",children:["n1","n2"]},
+      {id:"g1",type:"custom",label:"Identity Layer",children:["n1","n2"]},
       {id:"g2",type:"region",label:"East US",children:["g3","g4"]},
-      {id:"g3",type:"vnet_grp",label:"vnet-zerotrust-001 (10.0.0.0/16)",children:["g5","g6"]},
-      {id:"g4",type:"rg",label:"rg-security-platform",children:["n7","n8"]},
-      {id:"g5",type:"subnet_grp",label:"snet-dmz (10.0.1.0/24)",children:["n3","n4"]},
-      {id:"g6",type:"subnet_grp",label:"snet-app (10.0.2.0/24)",children:["n5","n6"]}
+      {id:"g3",type:"vnet_grp",label:"secure-vnet",children:["n3","n4","n5"]},
+      {id:"g4",type:"rg",label:"rg-security",children:["n6","n7"]}
     ],
     nodes:[
-      {id:"n1",type:"entra",label:"Corporate Identity Authority",techName:"id-woodgrove-prod-001",wafPillar:"SE"},
-      {id:"n2",type:"condaccess",label:"Adaptive Access Policies",techName:"ca-woodgrove-prod-001",wafPillar:"SE"},
-      {id:"n3",type:"appgw",label:"Trading Portal Shield",techName:"agw-trading-prod-001",wafPillar:"SE"},
-      {id:"n4",type:"nsg",label:"Workload Micro-Perimeter",techName:"nsg-trading-prod-001",wafPillar:"SE"},
-      {id:"n5",type:"aks",label:"Trade Execution Engine",techName:"aks-trading-prod-001",wafPillar:"RE"},
-      {id:"n6",type:"keyvault",label:"HSM-Backed Credential Vault",techName:"kv-trading-prod-001",wafPillar:"SE"},
-      {id:"n7",type:"sentinel",label:"Threat Intelligence Center",techName:"sentinel-soc-prod-001",wafPillar:"SE"},
-      {id:"n8",type:"monitor",label:"Regulatory Audit Telemetry",techName:"log-compliance-prod-001",wafPillar:"OE"}
+      {id:"n1",type:"entra",label:"Entra ID",techName:"entra-corp-001",wafPillar:"SE"},
+      {id:"n2",type:"condaccess",label:"Conditional Access",techName:"ca-policies-001",wafPillar:"SE"},
+      {id:"n3",type:"appgw",label:"WAF Gateway",techName:"agw-waf-001",wafPillar:"SE"},
+      {id:"n4",type:"aks",label:"App Cluster",techName:"aks-secure-001",wafPillar:"RE"},
+      {id:"n5",type:"keyvault",label:"Key Vault",techName:"kv-secrets-001",wafPillar:"SE"},
+      {id:"n6",type:"sentinel",label:"Sentinel SIEM",techName:"sentinel-soc-001",wafPillar:"SE"},
+      {id:"n7",type:"monitor",label:"Azure Monitor",techName:"mon-central-001",wafPillar:"OE"}
     ],
     edges:[
-      {from:"n1",to:"n2",label:"Identity Policy",style:"dashed"},
-      {from:"n2",to:"n3",label:"Authorized",style:"solid"},
-      {from:"n3",to:"n5",label:"WAF Filtered",style:"solid"},
-      {from:"n4",to:"n5",label:"Micro-segment",style:"solid"},
-      {from:"n5",to:"n6",label:"Private Link",style:"dashed"},
-      {from:"n3",to:"n7",label:"WAF Logs",style:"dashed"},
-      {from:"n7",to:"n8",label:"Security Events",style:"solid"}
+      {from:"n1",to:"n2",label:"Policy",style:"dashed"},
+      {from:"n2",to:"n3",label:"Authorize",style:"solid"},
+      {from:"n3",to:"n4",label:"WAF Filter",style:"solid"},
+      {from:"n4",to:"n5",label:"Secrets",style:"dashed"},
+      {from:"n3",to:"n6",label:"WAF Logs",style:"dashed"},
+      {from:"n4",to:"n7",label:"Metrics",style:"dashed"},
+      {from:"n6",to:"n7",label:"Alerts",style:"solid"}
     ]
   },
-  mlops:{title:"Contoso AI Platform — MLOps Pipeline",
+  dataplatform:{title:"Adventure Data Platform",
     layout:"flow",
     layoutHints:{flowDirection:"left-to-right"},
     groups:[
-      {id:"g1",type:"region",label:"East US",children:["g2","g3"]},
-      {id:"g2",type:"vnet_grp",label:"ml-vnet-001 (10.0.0.0/16)",children:["g4","g5"]},
-      {id:"g3",type:"rg",label:"rg-mlops-shared",children:["n8","n9","n10"]},
-      {id:"g4",type:"subnet_grp",label:"snet-training (10.0.1.0/24)",children:["n1","n2","n3"]},
-      {id:"g5",type:"subnet_grp",label:"snet-inference (10.0.2.0/24)",children:["n4","n5","n6","n7"]}
+      {id:"g1",type:"rg",label:"rg-data-platform",children:["g2","g3","g4"]},
+      {id:"g2",type:"custom",label:"Ingestion",children:["n1","n2"]},
+      {id:"g3",type:"custom",label:"Processing",children:["n3","n4"]},
+      {id:"g4",type:"custom",label:"Serving",children:["n5","n6","n7"]}
     ],
     nodes:[
-      {id:"n1",type:"mlworkspace",label:"Model Training Studio",techName:"mlw-training-prod-001",wafPillar:"PE"},
-      {id:"n2",type:"storage",label:"Training Data Lake",techName:"st-mldata-prod-001",wafPillar:"RE"},
-      {id:"n3",type:"vm",label:"GPU Compute Cluster",techName:"vm-gpu-train-001",wafPillar:"PE"},
-      {id:"n4",type:"acr",label:"Model Registry",techName:"cr-models-prod-001",wafPillar:"OE"},
-      {id:"n5",type:"aks",label:"Inference Cluster",techName:"aks-inference-prod-001",wafPillar:"RE"},
-      {id:"n6",type:"cognitive",label:"Cognitive Endpoint",techName:"cog-nlp-prod-001",wafPillar:"PE"},
-      {id:"n7",type:"container",label:"Model Serving Pods",techName:"inference-pods",wafPillar:"PE"},
-      {id:"n8",type:"keyvault",label:"ML Secrets Vault",techName:"kv-ml-prod-001",wafPillar:"SE"},
-      {id:"n9",type:"monitor",label:"ML Operations Hub",techName:"mon-ml-prod-001",wafPillar:"OE"},
-      {id:"n10",type:"appinsights",label:"Model Performance Telemetry",techName:"appi-ml-prod-001",wafPillar:"OE"}
-    ],
-    edges:[
-      {from:"n2",to:"n1",label:"Training Data",style:"solid"},
-      {from:"n3",to:"n1",label:"Compute",style:"solid"},
-      {from:"n1",to:"n4",label:"Publish Model",style:"solid"},
-      {from:"n4",to:"n5",label:"Deploy Image",style:"solid"},
-      {from:"n5",to:"n7",label:"Host",style:"solid"},
-      {from:"n7",to:"n6",label:"AI Calls",style:"solid"},
-      {from:"n1",to:"n8",label:"Secrets Access",style:"dashed"},
-      {from:"n5",to:"n8",label:"Managed Identity",style:"dashed"},
-      {from:"n5",to:"n10",label:"Telemetry",style:"dashed"},
-      {from:"n10",to:"n9",label:"Metrics",style:"dashed"}
-    ]
-  },
-  dataplatform:{title:"Adventure Works — Enterprise Data Platform",
-    layout:"flow",
-    layoutHints:{flowDirection:"left-to-right"},
-    groups:[
-      {id:"g1",type:"rg",label:"rg-dataplatform-prod",children:["g2","g3","g4","g5"]},
-      {id:"g2",type:"custom",label:"Ingestion Layer",children:["n1","n2"]},
-      {id:"g3",type:"custom",label:"Processing Layer",children:["n3","n4"]},
-      {id:"g4",type:"custom",label:"Serving Layer",children:["n5","n6"]},
-      {id:"g5",type:"custom",label:"Observability",children:["n7","n8"]}
-    ],
-    nodes:[
-      {id:"n1",type:"datafactory",label:"Data Ingestion Orchestrator",techName:"adf-ingest-prod-001",wafPillar:"RE"},
-      {id:"n2",type:"eventhub",label:"Streaming Ingestion Hub",techName:"evh-stream-prod-001",wafPillar:"PE"},
-      {id:"n3",type:"synapse",label:"Analytics Workspace",techName:"syn-analytics-prod-001",wafPillar:"PE"},
-      {id:"n4",type:"storage",label:"Enterprise Data Lake",techName:"st-datalake-prod-001",wafPillar:"RE"},
-      {id:"n5",type:"sqldb",label:"Curated Data Warehouse",techName:"sqldb-dwh-prod-001",wafPillar:"RE"},
-      {id:"n6",type:"cosmos",label:"Operational Data Store",techName:"cosmos-ops-prod-001",wafPillar:"PE"},
-      {id:"n7",type:"loganalytics",label:"Pipeline Diagnostics",techName:"log-data-prod-001",wafPillar:"OE"},
-      {id:"n8",type:"monitor",label:"Data Platform Health",techName:"mon-data-prod-001",wafPillar:"OE"}
+      {id:"n1",type:"datafactory",label:"Data Factory",techName:"adf-ingest-001",wafPillar:"RE"},
+      {id:"n2",type:"eventhub",label:"Stream Ingest",techName:"evh-stream-001",wafPillar:"PE"},
+      {id:"n3",type:"synapse",label:"Synapse Analytics",techName:"syn-process-001",wafPillar:"PE"},
+      {id:"n4",type:"storage",label:"Data Lake",techName:"adls-lake-001",wafPillar:"RE"},
+      {id:"n5",type:"sqldb",label:"Data Warehouse",techName:"sql-dwh-001",wafPillar:"RE"},
+      {id:"n6",type:"cosmos",label:"Operational DB",techName:"cosmos-ops-001",wafPillar:"PE"},
+      {id:"n7",type:"cognitive",label:"AI Services",techName:"cog-ai-001",wafPillar:"PE"}
     ],
     edges:[
       {from:"n1",to:"n4",label:"Batch ETL",style:"solid"},
-      {from:"n2",to:"n4",label:"Stream Ingest",style:"solid"},
+      {from:"n2",to:"n4",label:"Stream",style:"solid"},
       {from:"n4",to:"n3",label:"Transform",style:"solid"},
-      {from:"n3",to:"n5",label:"Curated Load",style:"solid"},
+      {from:"n3",to:"n5",label:"Load DWH",style:"solid"},
       {from:"n3",to:"n6",label:"Hot Data",style:"solid"},
-      {from:"n1",to:"n7",label:"Pipeline Logs",style:"dashed"},
-      {from:"n3",to:"n7",label:"Query Logs",style:"dashed"},
-      {from:"n7",to:"n8",label:"Alerts",style:"dashed"}
+      {from:"n3",to:"n7",label:"ML Input",style:"dashed"},
+      {from:"n5",to:"n7",label:"Inference",style:"dashed"}
     ]
   },
-  iotedge:{title:"Fabrikam Smart Factory — IoT Telemetry",
+  multiregion:{title:"Litware Global DR",
     layout:"flow",
     layoutHints:{flowDirection:"left-to-right"},
     groups:[
-      {id:"g1",type:"onprem",label:"Factory Floor — Edge Zone",children:["n1","n2"]},
-      {id:"g2",type:"region",label:"East US",children:["g3","g4"]},
-      {id:"g3",type:"vnet_grp",label:"iot-vnet-001 (10.0.0.0/16)",children:["g5"]},
-      {id:"g4",type:"rg",label:"rg-iot-platform",children:["n6","n7","n8"]},
-      {id:"g5",type:"subnet_grp",label:"snet-iot-processing (10.0.1.0/24)",children:["n3","n4","n5"]}
+      {id:"g1",type:"custom",label:"Global",children:["n1"]},
+      {id:"g2",type:"region",label:"East US Primary",children:["n2","n3","n4"]},
+      {id:"g3",type:"region",label:"West US DR",children:["n5","n6","n7"]}
     ],
     nodes:[
-      {id:"n1",type:"vm",label:"Edge Gateway Device",techName:"edge-gw-factory-001",wafPillar:"RE"},
-      {id:"n2",type:"container",label:"Edge ML Module",techName:"edge-ml-container",wafPillar:"PE"},
-      {id:"n3",type:"eventhub",label:"IoT Telemetry Hub",techName:"evh-iot-prod-001",wafPillar:"RE"},
-      {id:"n4",type:"streamanalytics",label:"Hot Path Analytics",techName:"asa-hotpath-prod-001",wafPillar:"PE"},
-      {id:"n5",type:"functions",label:"Telemetry Processor",techName:"func-iot-prod-001",wafPillar:"PE"},
-      {id:"n6",type:"storage",label:"Cold Storage Archive",techName:"st-coldpath-prod-001",wafPillar:"CO"},
-      {id:"n7",type:"cosmos",label:"Warm Path Store",techName:"cosmos-warmpath-prod-001",wafPillar:"RE"},
-      {id:"n8",type:"signalr",label:"Real-Time Dashboard Hub",techName:"sigr-dashboard-prod-001",wafPillar:"PE"}
+      {id:"n1",type:"frontdoor",label:"Front Door",techName:"afd-global-001",wafPillar:"RE"},
+      {id:"n2",type:"appservice",label:"Primary App",techName:"app-east-001",wafPillar:"RE"},
+      {id:"n3",type:"sqldb",label:"Primary SQL",techName:"sql-east-001",wafPillar:"RE"},
+      {id:"n4",type:"keyvault",label:"East Vault",techName:"kv-east-001",wafPillar:"SE"},
+      {id:"n5",type:"appservice",label:"DR App",techName:"app-west-001",wafPillar:"RE"},
+      {id:"n6",type:"sqldb",label:"DR SQL Replica",techName:"sql-west-001",wafPillar:"RE"},
+      {id:"n7",type:"keyvault",label:"West Vault",techName:"kv-west-001",wafPillar:"SE"}
     ],
     edges:[
-      {from:"n1",to:"n2",label:"Local Inference",style:"solid"},
-      {from:"n1",to:"n3",label:"MQTT/AMQP",style:"solid"},
-      {from:"n3",to:"n4",label:"Stream",style:"solid"},
-      {from:"n3",to:"n5",label:"Trigger",style:"solid"},
-      {from:"n4",to:"n7",label:"Hot Writes",style:"solid"},
-      {from:"n5",to:"n6",label:"Archive",style:"solid"},
-      {from:"n5",to:"n7",label:"Warm Writes",style:"solid"},
-      {from:"n4",to:"n8",label:"Real-Time Push",style:"solid"},
-      {from:"n7",to:"n8",label:"State Updates",style:"dashed"}
-    ]
-  },
-  multiregion:{title:"Litware Corp — Global Disaster Recovery",
-    layout:"flow",
-    layoutHints:{flowDirection:"left-to-right"},
-    groups:[
-      {id:"g1",type:"custom",label:"Global Traffic Management",children:["n1"]},
-      {id:"g2",type:"region",label:"East US — Primary",children:["g4","g6"]},
-      {id:"g3",type:"region",label:"West US — DR",children:["g5","g7"]},
-      {id:"g4",type:"vnet_grp",label:"vnet-east-001 (10.0.0.0/16)",children:["g8"]},
-      {id:"g5",type:"vnet_grp",label:"vnet-west-001 (10.1.0.0/16)",children:["g9"]},
-      {id:"g6",type:"rg",label:"rg-shared-east",children:["n6","n7"]},
-      {id:"g7",type:"rg",label:"rg-shared-west",children:["n10","n11"]},
-      {id:"g8",type:"subnet_grp",label:"snet-app-east (10.0.1.0/24)",children:["n2","n3"]},
-      {id:"g9",type:"subnet_grp",label:"snet-app-west (10.1.1.0/24)",children:["n4","n5"]}
-    ],
-    nodes:[
-      {id:"n1",type:"frontdoor",label:"Global Load Balancer",techName:"afd-global-prod-001",wafPillar:"RE"},
-      {id:"n2",type:"appservice",label:"Primary Web App",techName:"app-east-prod-001",wafPillar:"RE"},
-      {id:"n3",type:"sqldb",label:"Primary Database",techName:"sqldb-east-prod-001",wafPillar:"RE"},
-      {id:"n4",type:"appservice",label:"DR Web App",techName:"app-west-dr-001",wafPillar:"RE"},
-      {id:"n5",type:"sqldb",label:"DR Database Replica",techName:"sqldb-west-dr-001",wafPillar:"RE"},
-      {id:"n6",type:"keyvault",label:"East Secrets Vault",techName:"kv-east-prod-001",wafPillar:"SE"},
-      {id:"n7",type:"monitor",label:"East Operations",techName:"mon-east-prod-001",wafPillar:"OE"},
-      {id:"n10",type:"keyvault",label:"West Secrets Vault",techName:"kv-west-dr-001",wafPillar:"SE"},
-      {id:"n11",type:"monitor",label:"West Operations",techName:"mon-west-dr-001",wafPillar:"OE"}
-    ],
-    edges:[
-      {from:"n1",to:"n2",label:"Primary Route",style:"solid"},
-      {from:"n1",to:"n4",label:"Failover Route",style:"dashed"},
-      {from:"n2",to:"n3",label:"SQL/TLS",style:"solid"},
-      {from:"n4",to:"n5",label:"SQL/TLS",style:"solid"},
-      {from:"n3",to:"n5",label:"Geo-Replication",style:"dashed"},
-      {from:"n2",to:"n6",label:"Secrets Access",style:"dashed"},
-      {from:"n4",to:"n10",label:"Secrets Access",style:"dashed"},
-      {from:"n2",to:"n7",label:"Telemetry",style:"dashed"},
-      {from:"n4",to:"n11",label:"Telemetry",style:"dashed"}
+      {from:"n1",to:"n2",label:"Primary",style:"solid"},
+      {from:"n1",to:"n5",label:"Failover",style:"dashed"},
+      {from:"n2",to:"n3",label:"SQL",style:"solid"},
+      {from:"n2",to:"n4",label:"Secrets",style:"dashed"},
+      {from:"n5",to:"n6",label:"SQL",style:"solid"},
+      {from:"n5",to:"n7",label:"Secrets",style:"dashed"},
+      {from:"n3",to:"n6",label:"Geo-Replication",style:"dashed"}
     ]
   },
 };
@@ -1419,7 +1326,7 @@ function segmentIntersectsNode(p1, p2, node, nodeRadius = 36) {
   return false;
 }
 
-// Lift bendPoints above containers they would cross through
+// Lift bendPoints above containers they would cross through while preserving entry direction
 function avoidContainers(pts, groups, sourceId, targetId) {
   // Simplified: trust ELK's routing and only do minimal adjustments
   // ELK already handles obstacle avoidance, so we just pass through the points
@@ -1444,8 +1351,12 @@ function avoidContainers(pts, groups, sourceId, targetId) {
   // If no unrelated containers are crossed, return original path
   if (crossedContainers.length === 0) return pts;
 
+  // Detect original entry direction from the last segment
+  const secondLast = pts[pts.length - 2];
+  const last = pts[pts.length - 1];
+  const originalEntryVertical = Math.abs(last.x - secondLast.x) < 1;
+
   // Only reroute if we're crossing through containers we shouldn't
-  // Use a more conservative approach: route around the specific obstacle
   const start = pts[0], end = pts[pts.length - 1];
   const dx = end.x - start.x;
   const dy = end.y - start.y;
@@ -1455,24 +1366,25 @@ function avoidContainers(pts, groups, sourceId, targetId) {
     // Horizontal-dominant: try going around vertically
     const maxContainerBottom = Math.max(...crossedContainers.map(g => g.y + g.h));
     const minContainerTop = Math.min(...crossedContainers.map(g => g.y));
-
-    // Check which way is shorter: over the top or under the bottom
     const goOverTop = (start.y - minContainerTop) < (maxContainerBottom - start.y);
+    const routeY = goOverTop
+      ? Math.max(minContainerTop - CONTAINER_CLEARANCE, 20)
+      : maxContainerBottom + CONTAINER_CLEARANCE;
 
-    if (goOverTop) {
-      const topY = Math.max(minContainerTop - CONTAINER_CLEARANCE, 20);
+    if (originalEntryVertical) {
       return [
         { x: start.x, y: start.y },
-        { x: start.x, y: topY },
-        { x: end.x, y: topY },
+        { x: start.x, y: routeY },
+        { x: end.x, y: routeY },
         { x: end.x, y: end.y }
       ];
     } else {
-      const bottomY = maxContainerBottom + CONTAINER_CLEARANCE;
+      const approachX = dx > 0 ? end.x - CONTAINER_CLEARANCE : end.x + CONTAINER_CLEARANCE;
       return [
         { x: start.x, y: start.y },
-        { x: start.x, y: bottomY },
-        { x: end.x, y: bottomY },
+        { x: start.x, y: routeY },
+        { x: approachX, y: routeY },
+        { x: approachX, y: end.y },
         { x: end.x, y: end.y }
       ];
     }
@@ -1480,24 +1392,25 @@ function avoidContainers(pts, groups, sourceId, targetId) {
     // Vertical-dominant: try going around horizontally
     const maxContainerRight = Math.max(...crossedContainers.map(g => g.x + g.w));
     const minContainerLeft = Math.min(...crossedContainers.map(g => g.x));
-
-    // Check which way is shorter: around left or around right
     const goAroundLeft = (start.x - minContainerLeft) < (maxContainerRight - start.x);
+    const routeX = goAroundLeft
+      ? Math.max(minContainerLeft - CONTAINER_CLEARANCE, 20)
+      : maxContainerRight + CONTAINER_CLEARANCE;
 
-    if (goAroundLeft) {
-      const leftX = Math.max(minContainerLeft - CONTAINER_CLEARANCE, 20);
+    if (!originalEntryVertical) {
       return [
         { x: start.x, y: start.y },
-        { x: leftX, y: start.y },
-        { x: leftX, y: end.y },
+        { x: routeX, y: start.y },
+        { x: routeX, y: end.y },
         { x: end.x, y: end.y }
       ];
     } else {
-      const rightX = maxContainerRight + CONTAINER_CLEARANCE;
+      const approachY = dy > 0 ? end.y - CONTAINER_CLEARANCE : end.y + CONTAINER_CLEARANCE;
       return [
         { x: start.x, y: start.y },
-        { x: rightX, y: start.y },
-        { x: rightX, y: end.y },
+        { x: routeX, y: start.y },
+        { x: routeX, y: approachY },
+        { x: end.x, y: approachY },
         { x: end.x, y: end.y }
       ];
     }
@@ -1506,7 +1419,7 @@ function avoidContainers(pts, groups, sourceId, targetId) {
 
 const NODE_CLEARANCE = 45; // Pixels to clear around nodes for edge routing
 
-// Route edges around node obstacles
+// Route edges around node obstacles while preserving orthogonal entry to target
 function avoidNodes(pts, nodes, sourceId, targetId, nodeRadius = 36) {
   if (!pts || pts.length < 2) return pts;
 
@@ -1527,6 +1440,11 @@ function avoidNodes(pts, nodes, sourceId, targetId, nodeRadius = 36) {
 
   if (crossedNodes.length === 0) return pts;
 
+  // Detect original entry direction from the last segment
+  const secondLast = pts[pts.length - 2];
+  const last = pts[pts.length - 1];
+  const originalEntryVertical = Math.abs(last.x - secondLast.x) < 1; // vertical entry if X unchanged
+
   // Reroute around obstacles
   const start = pts[0], end = pts[pts.length - 1];
   const dx = end.x - start.x;
@@ -1543,12 +1461,25 @@ function avoidNodes(pts, nodes, sourceId, targetId, nodeRadius = 36) {
       ? Math.max(minTop - NODE_CLEARANCE, 20)
       : maxBottom + NODE_CLEARANCE;
 
-    return [
-      { x: start.x, y: start.y },
-      { x: start.x, y: routeY },
-      { x: end.x, y: routeY },
-      { x: end.x, y: end.y }
-    ];
+    // This detour naturally ends with vertical segment to target - good for vertical entry
+    if (originalEntryVertical) {
+      return [
+        { x: start.x, y: start.y },
+        { x: start.x, y: routeY },
+        { x: end.x, y: routeY },
+        { x: end.x, y: end.y }
+      ];
+    } else {
+      // Need horizontal entry - approach from side at end.y level
+      const approachX = dx > 0 ? end.x - NODE_CLEARANCE : end.x + NODE_CLEARANCE;
+      return [
+        { x: start.x, y: start.y },
+        { x: start.x, y: routeY },
+        { x: approachX, y: routeY },
+        { x: approachX, y: end.y },
+        { x: end.x, y: end.y }
+      ];
+    }
   } else {
     // Vertical-dominant path - go around horizontally (left or right)
     const maxRight = Math.max(...crossedNodes.map(n => n.x + nodeRadius));
@@ -1559,12 +1490,25 @@ function avoidNodes(pts, nodes, sourceId, targetId, nodeRadius = 36) {
       ? Math.max(minLeft - NODE_CLEARANCE, 20)
       : maxRight + NODE_CLEARANCE;
 
-    return [
-      { x: start.x, y: start.y },
-      { x: routeX, y: start.y },
-      { x: routeX, y: end.y },
-      { x: end.x, y: end.y }
-    ];
+    // This detour naturally ends with horizontal segment to target - good for horizontal entry
+    if (!originalEntryVertical) {
+      return [
+        { x: start.x, y: start.y },
+        { x: routeX, y: start.y },
+        { x: routeX, y: end.y },
+        { x: end.x, y: end.y }
+      ];
+    } else {
+      // Need vertical entry - approach from above/below at end.x level
+      const approachY = dy > 0 ? end.y - NODE_CLEARANCE : end.y + NODE_CLEARANCE;
+      return [
+        { x: start.x, y: start.y },
+        { x: routeX, y: start.y },
+        { x: routeX, y: approachY },
+        { x: end.x, y: approachY },
+        { x: end.x, y: end.y }
+      ];
+    }
   }
 }
 
@@ -1725,7 +1669,7 @@ function orthogonalPath(srcPort, tgtPort, sp, tp) {
 
 // Generate orthogonal bend points (same logic as orthogonalPath but returns array of points)
 // exitDist parameter allows staggering exit distances for multiple edges from same port
-function createOrthogonalPoints(srcPort, tgtPort, sp, tp, exitDist = 30) {
+function createOrthogonalPoints(srcPort, tgtPort, sp, tp, exitDist = 30, channelOffset = 0) {
   const clearance = 40;
   const minClear = 50;
   const sameSide = srcPort === tgtPort;
@@ -1736,7 +1680,7 @@ function createOrthogonalPoints(srcPort, tgtPort, sp, tp, exitDist = 30) {
       const dir = srcPort === 'top' ? -1 : 1;
       const spread = Math.abs(tp.x - sp.x);
       const dynamicClear = Math.max(clearance, exitDist) + Math.min(spread * 0.15, 60);
-      const peakY = (srcPort === 'top' ? Math.min(sp.y, tp.y) : Math.max(sp.y, tp.y)) + dir * dynamicClear;
+      const peakY = (srcPort === 'top' ? Math.min(sp.y, tp.y) : Math.max(sp.y, tp.y)) + dir * dynamicClear + channelOffset;
       return [
         { x: sp.x, y: sp.y },
         { x: sp.x, y: peakY },
@@ -1746,7 +1690,7 @@ function createOrthogonalPoints(srcPort, tgtPort, sp, tp, exitDist = 30) {
     } else {
       // Horizontal U-shape
       const dir = srcPort === 'left' ? -1 : 1;
-      const peakX = (srcPort === 'left' ? Math.min(sp.x, tp.x) : Math.max(sp.x, tp.x)) + dir * Math.max(clearance, exitDist);
+      const peakX = (srcPort === 'left' ? Math.min(sp.x, tp.x) : Math.max(sp.x, tp.x)) + dir * Math.max(clearance, exitDist) + channelOffset;
       return [
         { x: sp.x, y: sp.y },
         { x: peakX, y: sp.y },
@@ -1762,12 +1706,14 @@ function createOrthogonalPoints(srcPort, tgtPort, sp, tp, exitDist = 30) {
   if (parallel && horiz) {
     // Horizontal parallel: right→left or left→right with staggered midpoint
     const rawMidX = (sp.x + tp.x) / 2;
-    const midX = sp.x < tp.x
+    // Apply channel offset to the vertical channel X position
+    const midX = (sp.x < tp.x
       ? Math.max(rawMidX, sp.x + Math.max(minClear, exitDist))
-      : Math.min(rawMidX, sp.x - Math.max(minClear, exitDist));
+      : Math.min(rawMidX, sp.x - Math.max(minClear, exitDist))) + channelOffset;
     if (Math.abs(tp.y - sp.y) < 1) {
       return [{ x: sp.x, y: sp.y }, { x: tp.x, y: tp.y }];
     }
+    // Orthogonal path with offset vertical channel
     return [
       { x: sp.x, y: sp.y },
       { x: midX, y: sp.y },
@@ -1777,12 +1723,14 @@ function createOrthogonalPoints(srcPort, tgtPort, sp, tp, exitDist = 30) {
   } else if (parallel && !horiz) {
     // Vertical parallel: top→bottom or bottom→top with staggered midpoint
     const rawMidY = (sp.y + tp.y) / 2;
-    const midY = sp.y < tp.y
+    // Apply channel offset to the horizontal channel Y position
+    const midY = (sp.y < tp.y
       ? Math.max(rawMidY, sp.y + Math.max(minClear, exitDist))
-      : Math.min(rawMidY, sp.y - Math.max(minClear, exitDist));
+      : Math.min(rawMidY, sp.y - Math.max(minClear, exitDist))) + channelOffset;
     if (Math.abs(tp.x - sp.x) < 1) {
       return [{ x: sp.x, y: sp.y }, { x: tp.x, y: tp.y }];
     }
+    // Orthogonal path with offset horizontal channel
     return [
       { x: sp.x, y: sp.y },
       { x: sp.x, y: midY },
@@ -1792,7 +1740,8 @@ function createOrthogonalPoints(srcPort, tgtPort, sp, tp, exitDist = 30) {
   } else if (horiz) {
     // L-shape from horizontal port: exit horizontal with staggered distance, then vertical
     const dir = srcPort === 'right' ? 1 : -1;
-    const exitX = sp.x + dir * exitDist;
+    // Apply channel offset to the vertical channel X position to separate edges
+    const exitX = sp.x + dir * exitDist + channelOffset;
     // Check if we need a step (target not directly below/above exit point)
     if (Math.abs(tp.x - exitX) < 5) {
       // Simple L: go straight to target X then down
@@ -1813,7 +1762,8 @@ function createOrthogonalPoints(srcPort, tgtPort, sp, tp, exitDist = 30) {
     // From vertical port: exit vertical with staggered distance
     const tgtHoriz = tgtPort === 'left' || tgtPort === 'right';
     const dir = srcPort === 'bottom' ? 1 : -1;
-    const exitY = sp.y + dir * exitDist;
+    // Apply channel offset to the horizontal channel Y position to separate edges
+    const exitY = sp.y + dir * exitDist + channelOffset;
 
     if (tgtHoriz) {
       // Target expects horizontal entry - create step pattern
@@ -1846,6 +1796,53 @@ function createOrthogonalPoints(srcPort, tgtPort, sp, tp, exitDist = 30) {
       ];
     }
   }
+}
+
+// Fix only diagonal first/last segments while preserving intermediate points
+function ensureOrthogonalEnds(pts, srcPort, tgtPort) {
+  if (!pts || pts.length < 2) return pts;
+
+  const result = [...pts];
+  const srcVertical = srcPort === 'top' || srcPort === 'bottom';
+  const tgtVertical = tgtPort === 'top' || tgtPort === 'bottom';
+
+  // Check if first segment is diagonal (needs fixing)
+  const first = result[0];
+  const second = result[1];
+  const firstDx = Math.abs(second.x - first.x);
+  const firstDy = Math.abs(second.y - first.y);
+  const firstIsDiagonal = firstDx > 1 && firstDy > 1;
+
+  if (firstIsDiagonal) {
+    // Insert intermediate point to make first segment orthogonal
+    if (srcVertical) {
+      // Should exit vertically first, then turn horizontal
+      result.splice(1, 0, { x: first.x, y: second.y });
+    } else {
+      // Should exit horizontally first, then turn vertical
+      result.splice(1, 0, { x: second.x, y: first.y });
+    }
+  }
+
+  // Check if last segment is diagonal (needs fixing)
+  const last = result[result.length - 1];
+  const secondLast = result[result.length - 2];
+  const lastDx = Math.abs(last.x - secondLast.x);
+  const lastDy = Math.abs(last.y - secondLast.y);
+  const lastIsDiagonal = lastDx > 1 && lastDy > 1;
+
+  if (lastIsDiagonal) {
+    // Insert intermediate point to make last segment orthogonal
+    if (tgtVertical) {
+      // Should enter vertically, so second-last point aligns X with target
+      result.splice(result.length - 1, 0, { x: last.x, y: secondLast.y });
+    } else {
+      // Should enter horizontally, so second-last point aligns Y with target
+      result.splice(result.length - 1, 0, { x: secondLast.x, y: last.y });
+    }
+  }
+
+  return result;
 }
 
 // Generate SVG path from array of points with rounded corners
@@ -2069,7 +2066,7 @@ Architecture: ${input.trim()}`;
     finally { setLoading(false); }
   };
 
-  const loadDemo=async(k)=>{const d=DEMOS[k];if(!d)return;let r;try{r=await smartLayout(d);}catch(e){console.warn('smartLayout failed, using autoLayout:',e);r=autoLayout(d);}if(!r)return;pushHistory();setTitle(r.title);setNodes(r.nodes);setGroups(r.groups);setEdges(r.edges);setSel(null);setHasData(true);if(isMobile)setDrawerOpen(false);setTimeout(()=>zoomToFit(r.nodes,r.groups),100);};
+  const loadDemo=async(k)=>{const d=DEMOS[k];if(!d)return;let r;try{r=await smartLayout(d);}catch(e){console.warn('smartLayout failed, using autoLayout:',e);r=autoLayout(d);}if(!r)return;pushHistory();setTitle(r.title);setNodes(r.nodes);setGroups(r.groups);setEdges(r.edges.map(e=>({...e,bendPoints:undefined})));setSel(null);setHasData(true);if(isMobile)setDrawerOpen(false);setTimeout(()=>zoomToFit(r.nodes,r.groups),100);};
   const loadJson=()=>{try{const si=input.indexOf("{"),ei=input.lastIndexOf("}");if(si===-1)throw new Error("No JSON");const p=JSON.parse(input.slice(si,ei+1));p.nodes=(p.nodes||[]).filter(n=>ALL[n.type] || EXTERNAL_TYPES.has(n.type));p.groups=(p.groups||[]).filter(g=>GT[g.type]);const ids=new Set([...p.nodes.map(n=>n.id),...p.groups.map(g=>g.id)]);p.edges=(p.edges||[]).filter(e=>ids.has(e.from)&&ids.has(e.to));const r=autoLayout(p);if(!r)throw new Error("Layout failed");pushHistory();setTitle(r.title||"Custom");setNodes(r.nodes);setGroups(r.groups);setEdges(r.edges);setSel(null);setHasData(true);if(isMobile)setDrawerOpen(false);setTimeout(()=>zoomToFit(r.nodes,r.groups),100);}catch(e){alert("Invalid JSON: "+e.message);}};
   const addNode=useCallback(t=>{const id=`n${nid.current++}`;pushHistory();setNodes(p=>[...p,{id,type:t,label:ALL[t]?.name||t,techName:suggestName(t),x:400+(Math.random()-.5)*200-pan.x/zoom,y:300+(Math.random()-.5)*200-pan.y/zoom}]);setHasData(true);setEditMode(true);},[pan,zoom,pushHistory]);
   const addGroup=useCallback(tpl=>{const id=`g${gid.current++}`;pushHistory();setGroups(p=>[...p,{id,type:tpl.type,label:tpl.name,x:250+(Math.random()-.5)*100-pan.x/zoom,y:180+(Math.random()-.5)*100-pan.y/zoom,w:300,h:220,color:tpl.color,border:tpl.border,dash:tpl.dash}]);setHasData(true);setEditMode(true);},[pan,zoom,pushHistory]);
@@ -2108,9 +2105,9 @@ Architecture: ${input.trim()}`;
     // Use smartLayout router (defaults to ELK with autoLayout fallback)
     const r = await smartLayout(rebuilt);
     if (!r) { setToast('Layout failed'); setTimeout(() => setToast(null), 2000); return; }
-    setTitle(r.title); setNodes(r.nodes); setGroups(r.groups); setEdges(r.edges);
+    setTitle(r.title); setNodes(r.nodes); setGroups(r.groups); setEdges(r.edges.map(e=>({...e,bendPoints:undefined})));
     setSel(null); setTimeout(() => zoomToFit(r.nodes, r.groups), 100);
-    setToast('Layout updated with ELK.js'); setTimeout(() => setToast(null), 2000);
+    setToast('Layout updated'); setTimeout(() => setToast(null), 2000);
   }, [nodes, groups, edges, title, zoomToFit, pushHistory]);
 
   // WAF-03: Include metadata in SVG export
@@ -2373,15 +2370,18 @@ Architecture: ${input.trim()}`;
         if(n.x>=g.x&&n.x<=g.x+g.w&&n.y>=g.y&&n.y<=g.y+g.h) return {...n,x:n.x+dx,y:n.y+dy};
         return n;
       }));
-      // Clear bendPoints for edges connected to nodes inside the group or the group itself
+      // Clear bendPoints for edges connected to nodes/groups inside the dragged group
       setEdges(p=>p.map(e=>{
         const fromInside=nodes.some(n=>n.id===e.from&&n.x>=g.x&&n.x<=g.x+g.w&&n.y>=g.y&&n.y<=g.y+g.h);
         const toInside=nodes.some(n=>n.id===e.to&&n.x>=g.x&&n.x<=g.x+g.w&&n.y>=g.y&&n.y<=g.y+g.h);
-        if(fromInside||toInside||e.from===drag.id||e.to===drag.id)return{...e,bendPoints:undefined};
+        // Also check edges between child groups
+        const fromChildGroup=childGids.has(e.from);
+        const toChildGroup=childGids.has(e.to);
+        if(fromInside||toInside||fromChildGroup||toChildGroup||e.from===drag.id||e.to===drag.id)return{...e,bendPoints:undefined};
         return e;
       }));
     }
-  }}else if(rsz){e.preventDefault?.();setGroups(p=>p.map(g=>g.id===rsz.id?{...g,w:Math.max(160,rsz.sw+(x-rsz.sx)/zoom),h:Math.max(100,rsz.sh+(y-rsz.sy)/zoom)}:g));}else if(panSt){setPan({x:x-panSt.sx,y:y-panSt.sy});}},[drag,rsz,panSt,toSvg,zoom,groups,nodes]);
+  }}else if(rsz){e.preventDefault?.();setGroups(p=>p.map(g=>g.id===rsz.id?{...g,w:Math.max(160,rsz.sw+(x-rsz.sx)/zoom),h:Math.max(100,rsz.sh+(y-rsz.sy)/zoom)}:g));setEdges(p=>p.map(e=>(e.from===rsz.id||e.to===rsz.id)?{...e,bendPoints:undefined}:e));}else if(panSt){setPan({x:x-panSt.sx,y:y-panSt.sy});}},[drag,rsz,panSt,toSvg,zoom,groups,nodes]);
   const onUp=useCallback(()=>{setDrag(null);setRsz(null);setPanSt(null);pinchRef.current=null;},[]);
   const showToast=useCallback(msg=>{setToast(msg);setTimeout(()=>setToast(null),3000);},[]);
 
@@ -2413,6 +2413,28 @@ Architecture: ${input.trim()}`;
   const delSel=()=>{if(!sel)return;pushHistory();if(sel.kind==="node"){setNodes(p=>p.filter(n=>n.id!==sel.id));setEdges(p=>p.filter(e=>e.from!==sel.id&&e.to!==sel.id));}else if(sel.kind==="group")setGroups(p=>p.filter(g=>g.id!==sel.id));else if(sel.kind==="edge")setEdges(p=>p.filter(e=>e.id!==sel.id));setSel(null);};
   const rename=(id,k,l)=>{pushHistory();if(k==="node")setNodes(p=>p.map(n=>n.id===id?{...n,label:l}:n));else setGroups(p=>p.map(g=>g.id===id?{...g,label:l}:g));};
   const renameTech=(id,v)=>{pushHistory();setNodes(p=>p.map(n=>n.id===id?{...n,techName:v}:n));};
+  const toggleGroupCollapse=(gId)=>{
+    pushHistory();
+    const g=groups.find(gr=>gr.id===gId);
+    if(!g)return;
+    // Find all descendants (children, grandchildren, etc.)
+    const descendants=new Set();
+    const findDesc=(parent)=>{
+      (parent.children||[]).forEach(cId=>{
+        descendants.add(cId);
+        const child=groups.find(gr=>gr.id===cId);
+        if(child)findDesc(child);
+      });
+    };
+    findDesc(g);
+    setGroups(p=>p.map(gr=>gr.id===gId?{...gr,collapsed:!gr.collapsed}:gr));
+    // Clear bendPoints for edges connected to group or any descendants
+    setEdges(p=>p.map(e=>{
+      if(e.from===gId||e.to===gId)return{...e,bendPoints:undefined};
+      if(descendants.has(e.from)||descendants.has(e.to))return{...e,bendPoints:undefined};
+      return e;
+    }));
+  };
   const selNode=sel?.kind==="node"?nodes.find(n=>n.id===sel.id):null;
   const selGroup=sel?.kind==="group"?groups.find(g=>g.id===sel.id):null;
   const selEdge=sel?.kind==="edge"?edges.find(e=>e.id===sel.id):null;
@@ -2499,7 +2521,7 @@ Architecture: ${input.trim()}`;
       <div style={{display:"flex",minHeight:"calc(100vh - 45px)"}}>
         {isMobile&&drawerOpen&&<div onClick={()=>setDrawerOpen(false)} style={{position:"fixed",inset:0,top:45,background:"rgba(0,0,0,.5)",zIndex:40}}/>}
         <aside style={{width:isMobile?"85vw":280,position:isMobile?"fixed":"relative",left:isMobile?(drawerOpen?0:"-100%"):0,top:isMobile?45:0,height:isMobile?"calc(100vh-45px)":"auto",zIndex:isMobile?50:1,transition:"left .3s",borderRight:`1px solid ${T.bdr}`,padding:10,display:"flex",flexDirection:"column",gap:7,overflowY:"auto",flexShrink:0,background:T.srf}}>
-          <div><label style={lbl(T)}>EXAMPLES</label><div style={{display:"flex",gap:3,flexWrap:"wrap"}}>{[["hubspoke","Contoso Network"],["aksbaseline","Northwind Store"],["eventdriven","Tailwind Orders"],["zerotrust","Woodgrove Finance"],["mlops","Contoso AI"],["dataplatform","Adventure Data"],["iotedge","Fabrikam IoT"],["multiregion","Litware DR"]].map(([k,l])=> <button key={k} onClick={()=>setActiveEx(k)} style={{padding:"4px 8px",borderRadius:4,border:`1px solid ${activeEx===k?"#0078D4":T.bdr}`,background:activeEx===k?"rgba(0,120,212,.1)":"transparent",color:activeEx===k?"#0078D4":T.ts,fontSize:9,cursor:"pointer"}}>{l}</button>)}</div></div>
+          <div><label style={lbl(T)}>EXAMPLES</label><div style={{display:"flex",gap:3,flexWrap:"wrap"}}>{[["hubspoke","Contoso Hub-Spoke"],["ntier","Northwind N-Tier"],["eventpipeline","Tailwind Events"],["zerotrust","Woodgrove Zero-Trust"],["dataplatform","Adventure Data"],["multiregion","Litware DR"]].map(([k,l])=> <button key={k} onClick={()=>setActiveEx(k)} style={{padding:"4px 8px",borderRadius:4,border:`1px solid ${activeEx===k?"#0078D4":T.bdr}`,background:activeEx===k?"rgba(0,120,212,.1)":"transparent",color:activeEx===k?"#0078D4":T.ts,fontSize:9,cursor:"pointer"}}>{l}</button>)}</div></div>
           {activeEx&&<button onClick={()=>loadDemo(activeEx)} style={{padding:9,borderRadius:5,border:"none",background:"linear-gradient(135deg,#0078D4,#5C2D91)",color:"white",fontSize:11,fontWeight:600,cursor:"pointer"}}>▶ Load Demo</button>}
           <div><label style={lbl(T)}>DESCRIBE OR PASTE JSON</label><textarea value={input} onChange={e=>setInput(e.target.value)} placeholder={"Describe your architecture...\nor paste diagram JSON"} style={{width:"100%",minHeight:90,padding:8,borderRadius:4,border:`1px solid ${T.bdr}`,background:T.bg,color:T.text,fontSize:10,fontFamily:"Consolas,monospace",lineHeight:1.5,resize:"vertical",outline:"none",boxSizing:"border-box"}}/>
             <div style={{display:"flex",gap:4,marginTop:4}}>
@@ -2580,7 +2602,7 @@ Architecture: ${input.trim()}`;
                 const cmp=g.compliance&&(COMPLIANCE_ZONES[g.compliance]||{label:g.compliance.toUpperCase().slice(0,6),color:"#6b7280",name:g.compliance});
                 const labelW=measureTextWidth(g.label,d>0?10:11);
                 return (
-                <g key={g.id}><rect x={g.x} y={g.y} width={g.collapsed?160:g.w} height={g.collapsed?40:g.h} rx={Math.max(6,10-d*2)} fill={g.color+fillOp} stroke={isSel?T.sel:g.border+(d>0?"40":"60")} strokeWidth={bw} strokeDasharray={g.dash?"8 4":"none"} style={{cursor:editMode?(connectFrom?"crosshair":"grab"):"default"}} onMouseDown={e=>onGroupDown(e,g.id)} onTouchStart={e=>onGroupDown(e,g.id)}/><rect x={g.x} y={g.y} width={g.collapsed?160:g.w} height={d>0?24:28} rx={Math.max(6,10-d*2)} fill={g.color+(d>0?"0c":"14")} style={{pointerEvents:"none"}}/>{!g.collapsed&&<rect x={g.x} y={g.y+(d>0?16:20)} width={g.w} height={8} fill={g.color+(d>0?"0c":"14")} style={{pointerEvents:"none"}}/>}<foreignObject x={g.x+4} y={g.y+4} width={18} height={18}><button type="button" aria-label={`${g.collapsed?"Expand":"Collapse"} group ${g.label}`} onClick={e=>{e.stopPropagation();pushHistory();setGroups(p=>p.map(gr=>gr.id===g.id?{...gr,collapsed:!gr.collapsed}:gr));}} style={{width:"16px",height:"16px",display:"flex",alignItems:"center",justifyContent:"center",padding:0,border:"none",borderRadius:"3px",background:g.border+"20",color:g.border,cursor:"pointer",fontSize:"10px",lineHeight:1}}>{g.collapsed?"▶":"▼"}</button></foreignObject><text x={g.x+(d>0?24:28)} y={g.y+(d>0?16:18)} fill={g.border} fontSize={d>0?10:11} fontWeight="600" fontFamily="Segoe UI" style={{pointerEvents:"none"}}>{g.label}{g.collapsed?" (collapsed)":""}</text>{cmp&&<g style={{pointerEvents:"none"}}><rect x={g.x+(d>0?8:12)+labelW+6} y={g.y+(d>0?6:8)} width={cmp.label.length*5+10} height={14} rx={3} fill={cmp.color}/><text x={g.x+(d>0?8:12)+labelW+6+cmp.label.length*2.5+5} y={g.y+(d>0?16:18)} textAnchor="middle" fill="white" fontSize="8" fontWeight="700" fontFamily="Consolas,monospace">{cmp.label}</text></g>}{hierViolations.has(g.id)&&<g style={{pointerEvents:"none"}}><title>Hierarchy violation</title><circle cx={g.x+g.w-8} cy={g.y+8} r={7} fill="#f59e0b"/><text x={g.x+g.w-8} y={g.y+12} textAnchor="middle" fill="white" fontSize="9" fontWeight="700" fontFamily="Segoe UI">!</text></g>}{editMode&&<><rect x={g.x+g.w-16} y={g.y+g.h-16} width={16} height={16} rx={4} fill="transparent" style={{cursor:"nwse-resize"}} onMouseDown={e=>onResizeDown(e,g.id)} onTouchStart={e=>onResizeDown(e,g.id)}/><path d={`M${g.x+g.w-5} ${g.y+g.h-12}L${g.x+g.w-5} ${g.y+g.h-5}L${g.x+g.w-12} ${g.y+g.h-5}`} fill="none" stroke={g.border+"40"} strokeWidth="1.5" style={{pointerEvents:"none"}}/></>}</g>
+                <g key={g.id}><rect x={g.x} y={g.y} width={g.collapsed?160:g.w} height={g.collapsed?40:g.h} rx={Math.max(6,10-d*2)} fill={g.color+fillOp} stroke={isSel?T.sel:g.border+(d>0?"40":"60")} strokeWidth={bw} strokeDasharray={g.dash?"8 4":"none"} style={{cursor:editMode?(connectFrom?"crosshair":"grab"):"default"}} onMouseDown={e=>onGroupDown(e,g.id)} onTouchStart={e=>onGroupDown(e,g.id)}/><rect x={g.x} y={g.y} width={g.collapsed?160:g.w} height={d>0?24:28} rx={Math.max(6,10-d*2)} fill={g.color+(d>0?"0c":"14")} style={{pointerEvents:"none"}}/>{!g.collapsed&&<rect x={g.x} y={g.y+(d>0?16:20)} width={g.w} height={8} fill={g.color+(d>0?"0c":"14")} style={{pointerEvents:"none"}}/>}<foreignObject x={g.x+4} y={g.y+4} width={18} height={18}><button type="button" aria-label={`${g.collapsed?"Expand":"Collapse"} group ${g.label}`} onClick={e=>{e.stopPropagation();toggleGroupCollapse(g.id);}} style={{width:"16px",height:"16px",display:"flex",alignItems:"center",justifyContent:"center",padding:0,border:"none",borderRadius:"3px",background:g.border+"20",color:g.border,cursor:"pointer",fontSize:"10px",lineHeight:1}}>{g.collapsed?"▶":"▼"}</button></foreignObject><text x={g.x+(d>0?24:28)} y={g.y+(d>0?16:18)} fill={g.border} fontSize={d>0?10:11} fontWeight="600" fontFamily="Segoe UI" style={{pointerEvents:"none"}}>{g.label}{g.collapsed?" (collapsed)":""}</text>{cmp&&<g style={{pointerEvents:"none"}}><rect x={g.x+(d>0?8:12)+labelW+6} y={g.y+(d>0?6:8)} width={cmp.label.length*5+10} height={14} rx={3} fill={cmp.color}/><text x={g.x+(d>0?8:12)+labelW+6+cmp.label.length*2.5+5} y={g.y+(d>0?16:18)} textAnchor="middle" fill="white" fontSize="8" fontWeight="700" fontFamily="Consolas,monospace">{cmp.label}</text></g>}{hierViolations.has(g.id)&&<g style={{pointerEvents:"none"}}><title>Hierarchy violation</title><circle cx={g.x+g.w-8} cy={g.y+8} r={7} fill="#f59e0b"/><text x={g.x+g.w-8} y={g.y+12} textAnchor="middle" fill="white" fontSize="9" fontWeight="700" fontFamily="Segoe UI">!</text></g>}{editMode&&<><rect x={g.x+g.w-16} y={g.y+g.h-16} width={16} height={16} rx={4} fill="transparent" style={{cursor:"nwse-resize"}} onMouseDown={e=>onResizeDown(e,g.id)} onTouchStart={e=>onResizeDown(e,g.id)}/><path d={`M${g.x+g.w-5} ${g.y+g.h-12}L${g.x+g.w-5} ${g.y+g.h-5}L${g.x+g.w-12} ${g.y+g.h-5}`} fill="none" stroke={g.border+"40"} strokeWidth="1.5" style={{pointerEvents:"none"}}/></>}</g>
               );})}
               {(()=>{
                 // Precompute port assignments + multi-edge offsets with intelligent load balancing
@@ -2627,17 +2649,18 @@ Architecture: ${input.trim()}`;
                 });
                 const edgeOff={};
                 const targetOff={};
-                // Offset edges sharing the same source port with staggered exit distances
+                // Offset edges sharing the same source port with staggered exit distances and channel offsets
                 Object.entries(sharedPorts).forEach(([k,list])=>{
                   if(list.length<2)return;
                   const port=k.split(':')[1];
                   list.sort((a,b)=>a.tgtCy-b.tgtCy);
                   list.forEach((item,i)=>{
-                    const off=(i-(list.length-1)/2)*14;
-                    const exitDist = 25 + i * 12; // Stagger exit distances for cleaner routing
+                    const off=(i-(list.length-1)/2)*20; // Increased spacing between edges
+                    const exitDist = 30 + i * 15; // Stagger exit distances for cleaner routing
+                    const channelOffset = (i-(list.length-1)/2)*18; // Offset for intermediate segments
                     edgeOff[item.id]=port==='right'||port==='left'
-                      ?{dx:0,dy:off,exitDist}
-                      :{dx:off,dy:0,exitDist};
+                      ?{dx:0,dy:off,exitDist,channelOffset}
+                      :{dx:off,dy:0,exitDist,channelOffset};
                   });
                 });
                 // Offset edges sharing the same target port (prevents arrow overlap)
@@ -2646,7 +2669,7 @@ Architecture: ${input.trim()}`;
                   const port=k.split(':')[1];
                   list.sort((a,b)=>a.srcCy-b.srcCy);
                   list.forEach((item,i)=>{
-                    const off=(i-(list.length-1)/2)*14;
+                    const off=(i-(list.length-1)/2)*20; // Increased spacing
                     targetOff[item.id]=port==='right'||port==='left'?{dx:0,dy:off}:{dx:off,dy:0};
                   });
                 });
@@ -2824,6 +2847,9 @@ Architecture: ${input.trim()}`;
                     filtered.push(pts[pts.length - 1]);
                     pts = filtered;
 
+                    // Ensure orthogonal exit and entry
+                    pts = ensureOrthogonalEnds(pts, info.srcPort, info.tgtPort);
+
                     const r = EDGE_CR;
                     // Build smooth orthogonal path from ELK bend points
                     const segs = [`M ${pts[0].x},${pts[0].y}`];
@@ -2855,24 +2881,43 @@ Architecture: ${input.trim()}`;
                     // Fall back to computed orthogonal path with node avoidance
                     if(!info) return null;
                     const {srcPort,tgtPort,sA,tA}=info;
-                    const o=edgeOff[edge.id]||{dx:0,dy:0,exitDist:30};
+                    const o=edgeOff[edge.id]||{dx:0,dy:0,exitDist:30,channelOffset:0};
                     const to=targetOff[edge.id]||{dx:0,dy:0};
                     const sp={x:sA.ports[srcPort].x+o.dx,y:sA.ports[srcPort].y+o.dy};
                     const tp={x:tA.ports[tgtPort].x+to.dx,y:tA.ports[tgtPort].y+to.dy};
 
-                    // Create initial bend points with staggered exit distance for multiple edges
+                    // Create initial bend points with staggered exit distance and channel offset for multiple edges
                     const exitDist = o.exitDist || 30;
-                    let pts = createOrthogonalPoints(srcPort, tgtPort, sp, tp, exitDist);
+                    const channelOffset = o.channelOffset || 0;
+                    let pts = createOrthogonalPoints(srcPort, tgtPort, sp, tp, exitDist, channelOffset);
 
                     // Apply node avoidance to route around obstacles
                     pts = avoidNodes(pts, nodes, edge.from, edge.to, iSzEdge.node / 2 + 8);
 
+                    // Ensure orthogonal exit from source and entry to target
+                    pts = ensureOrthogonalEnds(pts, srcPort, tgtPort);
+
                     // Generate path from points with rounded corners
                     p = generatePathFromPoints(pts);
 
-                    // Label at midpoint of points
-                    const midIdx = Math.floor(pts.length / 2);
-                    lp = labelPositions[edge.id] || { x: pts[midIdx].x, y: pts[midIdx].y - 15 };
+                    // Label at midpoint of longest segment (not just array midpoint)
+                    if (labelPositions[edge.id]) {
+                      lp = labelPositions[edge.id];
+                    } else {
+                      // Find longest segment
+                      let maxLen = 0, bestMid = { x: pts[0].x, y: pts[0].y }, isHoriz = true;
+                      for (let i = 0; i < pts.length - 1; i++) {
+                        const p1 = pts[i], p2 = pts[i + 1];
+                        const len = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+                        if (len > maxLen) {
+                          maxLen = len;
+                          bestMid = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
+                          isHoriz = Math.abs(p2.x - p1.x) > Math.abs(p2.y - p1.y);
+                        }
+                      }
+                      // Offset label perpendicular to segment direction
+                      lp = { x: bestMid.x, y: isHoriz ? bestMid.y - 15 : bestMid.y };
+                    }
                   }
 
                   // WAF-20: trust_boundary is thick red dashed line

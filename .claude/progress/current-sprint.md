@@ -121,6 +121,27 @@ None currently
 
 ## Session Achievements
 
+### 2026-04-18: Edge Routing Separation & New Demos
+
+**Bug Fixes:**
+- Fixed edges overlapping from collapsed groups
+- Fixed labels positioned incorrectly on overlapping edges
+- Added `channelOffset` to separate edge channels
+- Increased edge spacing (14px → 20px) and stagger (25+i*12 → 30+i*15)
+- Labels now placed on longest segment, not array midpoint
+
+**Demo Updates:**
+- Replaced 8 demos with 6 cleaner ones:
+  - Contoso Hub-Spoke, Northwind N-Tier, Tailwind Events
+  - Woodgrove Zero-Trust, Adventure Data, Litware DR
+
+**Tests:**
+- Fixed toast message assertions in layout tests
+- Full suite: 223 tests passing
+
+**Deployment:**
+- Deployed to staging: https://staging.nwgrm.org
+
 ### 2026-04-17: Visualization Modes & Edge Routing
 
 **New Features:**
@@ -164,10 +185,10 @@ Phase 2: 4/4 done  [██████████] ✅ COMPLETE (32 tests)
 Phase 3: 4/4 done  [██████████] ✅ COMPLETE (39 tests)
 Phase 4: 5/5 done  [██████████] ✅ COMPLETE (51 tests)
 Phase 5: 0/3 done  [░░░░░░░░░░]
-Extras:            [██████████] ✅ Visualization modes + fixes (32 tests)
+Extras:            [██████████] ✅ Edge routing + demos (72 tests)
 ─────────────────────────────────
 Total:  20/23 WAF done [█████████░] 87%
-Full test suite: 183 tests passing
+Full test suite: 223 tests passing
 ```
 
 ## Recommended Resume Point

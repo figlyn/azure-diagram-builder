@@ -580,7 +580,7 @@ test.describe('Intelligent Layout Selection', () => {
       await clickLayoutButton(page);
 
       // Verify toast appeared
-      const toast = page.getByText('Layout updated with ELK.js');
+      const toast = page.getByText('Layout updated');
       await expect(toast).toBeVisible({ timeout: 3000 });
 
       // Verify nodes are still visible

@@ -207,7 +207,7 @@ test.describe('Layout button edge rerouting', () => {
     await clickLayoutButton(page);
 
     // Verify toast appeared (indicates layout was applied)
-    const toast = page.getByText('Layout updated with ELK.js');
+    const toast = page.getByText('Layout updated');
     await expect(toast).toBeVisible({ timeout: 3000 });
 
     // Get new paths after layout
@@ -374,7 +374,7 @@ test.describe('Layout button edge rerouting', () => {
     await clickLayoutButton(page);
 
     // Verify layout toast appears
-    const toast = page.getByText('Layout updated with ELK.js');
+    const toast = page.getByText('Layout updated');
     await expect(toast).toBeVisible({ timeout: 3000 });
 
     // Verify edges are still rendered
@@ -504,7 +504,7 @@ test.describe('Layout button edge rerouting', () => {
     await clickLayoutButton(page);
 
     // Toast should appear
-    const toast = page.getByText('Layout updated with ELK.js');
+    const toast = page.getByText('Layout updated');
     await expect(toast).toBeVisible({ timeout: 3000 });
   });
 

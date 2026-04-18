@@ -133,7 +133,7 @@ See `azure-diagram-requirements.md` for 84 user stories.
   - component drill-in
   - collapsible groups
 - Phase 4 QA suite is hardened to `51/51` passing in `tests/phase4-c4model.spec.js`.
-- Full Playwright suite is currently `151/151` passing.
+- Full Playwright suite is currently `223/223` passing.
 - `npm run build` passes after the latest fixes.
 - Remaining delivery scope is Phase 5 accessibility plus manual UX review.
 
@@ -144,9 +144,10 @@ See `azure-diagram-requirements.md` for 84 user stories.
 - QA follow-up and remaining risks: `QA-BUG-REPORT.md`
 
 Latest session achievements:
-- Fixed Phase 4 regressions in WAF-33 and WAF-35.
-- Added accessibility semantics and keyboard behavior for Phase 4 controls.
-- Hardened Playwright scenarios so they validate behavior more directly.
+- Fixed edge overlapping from collapsed groups
+- Fixed label positioning on overlapping edges
+- Replaced 8 demos with 6 cleaner topologies
+- Deployed to staging.nwgrm.org
 
 Recommended resume point:
 - Implement Phase 5 accessibility stories `WAF-40`, `WAF-41`, and `WAF-42`, then return to the residual QA risks documented in `QA-BUG-REPORT.md`.
