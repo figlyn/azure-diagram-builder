@@ -174,8 +174,8 @@ const DEMOS={
     ]
   },
   zerotrust:{title:"Woodgrove Financial \u2014 Zero-Trust Trading",
-    layout:"zones",
-    layoutHints:{zones:["identity","network","security"]},
+    layout:"hierarchical",
+    layoutHints:{tiers:["identity","network","app"]},
     groups:[
       {id:"g1",type:"custom",label:"Identity Perimeter",children:["n1","n2"]},
       {id:"g2",type:"region",label:"East US",children:["g3","g4"]},
@@ -303,8 +303,8 @@ const DEMOS={
     ]
   },
   multiregion:{title:"Litware Corp — Global Disaster Recovery",
-    layout:"zones",
-    layoutHints:{zones:["global","primary","dr"]},
+    layout:"flow",
+    layoutHints:{flowDirection:"left-to-right"},
     groups:[
       {id:"g1",type:"custom",label:"Global Traffic Management",children:["n1"]},
       {id:"g2",type:"region",label:"East US — Primary",children:["g4","g6"]},
@@ -1352,20 +1352,28 @@ function layoutHubSpoke(data, hints) {
 async function smartLayout(data) {
   const layout = data.layout || 'auto';
   const hints = data.layoutHints || {};
+  let result;
 
   switch (layout) {
     case 'hub-spoke':
-      return layoutHubSpoke(data, hints);
+      result = layoutHubSpoke(data, hints);
+      break;
     case 'hierarchical':
-      return await layoutHierarchical(data, hints);
+      result = await layoutHierarchical(data, hints);
+      break;
     case 'zones':
-      return layoutZones(data, hints);
+      result = layoutZones(data, hints);
+      break;
     case 'flow':
-      return await layoutFlow(data, hints);
+      result = await layoutFlow(data, hints);
+      break;
     case 'auto':
     default:
-      return await elkLayout(data) || autoLayout(data);
+      result = await elkLayout(data);
+      break;
   }
+  // Fallback to autoLayout if specialized layout returns null
+  return result || autoLayout(data);
 }
 
 // ===== ORTHOGONAL EDGE ROUTING (Manhattan paths with rounded corners) =====
@@ -1595,26 +1603,61 @@ function resolveAnchor(id, nodes, groups, portOffset = 28) {
   return null;
 }
 
-function selectPorts(sA, tA, allGroups) {
-  const dx = tA.cx - sA.cx;
-  const dy = tA.cy - sA.cy;
-  const absDx = Math.abs(dx);
-  const absDy = Math.abs(dy);
+// Calculate angle from source to target (0-360 degrees, 0 = right, 90 = down)
+function getAngleToTarget(src, tgt) {
+  const dx = tgt.cx - src.cx;
+  const dy = tgt.cy - src.cy;
+  let angle = Math.atan2(dy, dx) * 180 / Math.PI;
+  if (angle < 0) angle += 360;
+  return angle;
+}
 
-  // Smart geometry-based port selection:
-  // Use the most direct path based on relative positions
+// Map angle to optimal port (angle-based routing)
+function angleToPort(angle) {
+  if (angle >= 315 || angle < 45) return 'right';
+  if (angle >= 45 && angle < 135) return 'bottom';
+  if (angle >= 135 && angle < 225) return 'left';
+  return 'top';
+}
 
-  // Horizontal-dominant: use side ports (right→left or left→right)
-  if (absDx > absDy) {
-    return dx > 0
-      ? { srcPort: 'right', tgtPort: 'left' }   // target is to the right
-      : { srcPort: 'left', tgtPort: 'right' };  // target is to the left
+// Get opposite port for target entry
+const OPPOSITE_PORT = { right: 'left', left: 'right', top: 'bottom', bottom: 'top' };
+const ADJACENT_PORT = { right: 'bottom', bottom: 'left', left: 'top', top: 'right' };
+
+// Select ports with load balancing to prevent bunching
+function selectBalancedPorts(sA, tA, portLoads, nodeId) {
+  const MAX_PER_PORT = 3;
+  const angle = getAngleToTarget(sA, tA);
+  let srcPort = angleToPort(angle);
+
+  // Get opposite port for target
+  let tgtPort = OPPOSITE_PORT[srcPort];
+
+  // Check if source port is overloaded (>3 edges)
+  const loads = portLoads[nodeId] || { right: 0, bottom: 0, left: 0, top: 0 };
+  if (loads[srcPort] >= MAX_PER_PORT) {
+    // Try adjacent port
+    const altPort = ADJACENT_PORT[srcPort];
+    if ((loads[altPort] || 0) < MAX_PER_PORT) {
+      srcPort = altPort;
+      // Adjust target port based on new direction
+      if (srcPort === 'bottom' || srcPort === 'top') {
+        tgtPort = tA.cy > sA.cy ? 'top' : 'bottom';
+      } else {
+        tgtPort = tA.cx > sA.cx ? 'left' : 'right';
+      }
+    }
   }
 
-  // Vertical-dominant: use top/bottom ports
-  return dy > 0
-    ? { srcPort: 'bottom', tgtPort: 'top' }     // target is below
-    : { srcPort: 'top', tgtPort: 'bottom' };    // target is above
+  return { srcPort, tgtPort };
+}
+
+function selectPorts(sA, tA, allGroups) {
+  // Use angle-based port selection for cleaner routing
+  const angle = getAngleToTarget(sA, tA);
+  const srcPort = angleToPort(angle);
+  const tgtPort = OPPOSITE_PORT[srcPort];
+  return { srcPort, tgtPort };
 }
 
 function orthogonalPath(srcPort, tgtPort, sp, tp) {
@@ -1681,7 +1724,8 @@ function orthogonalPath(srcPort, tgtPort, sp, tp) {
 }
 
 // Generate orthogonal bend points (same logic as orthogonalPath but returns array of points)
-function createOrthogonalPoints(srcPort, tgtPort, sp, tp) {
+// exitDist parameter allows staggering exit distances for multiple edges from same port
+function createOrthogonalPoints(srcPort, tgtPort, sp, tp, exitDist = 30) {
   const clearance = 40;
   const minClear = 50;
   const sameSide = srcPort === tgtPort;
@@ -1691,7 +1735,7 @@ function createOrthogonalPoints(srcPort, tgtPort, sp, tp) {
     if (srcPort === 'top' || srcPort === 'bottom') {
       const dir = srcPort === 'top' ? -1 : 1;
       const spread = Math.abs(tp.x - sp.x);
-      const dynamicClear = clearance + Math.min(spread * 0.15, 60);
+      const dynamicClear = Math.max(clearance, exitDist) + Math.min(spread * 0.15, 60);
       const peakY = (srcPort === 'top' ? Math.min(sp.y, tp.y) : Math.max(sp.y, tp.y)) + dir * dynamicClear;
       return [
         { x: sp.x, y: sp.y },
@@ -1702,7 +1746,7 @@ function createOrthogonalPoints(srcPort, tgtPort, sp, tp) {
     } else {
       // Horizontal U-shape
       const dir = srcPort === 'left' ? -1 : 1;
-      const peakX = (srcPort === 'left' ? Math.min(sp.x, tp.x) : Math.max(sp.x, tp.x)) + dir * clearance;
+      const peakX = (srcPort === 'left' ? Math.min(sp.x, tp.x) : Math.max(sp.x, tp.x)) + dir * Math.max(clearance, exitDist);
       return [
         { x: sp.x, y: sp.y },
         { x: peakX, y: sp.y },
@@ -1716,9 +1760,11 @@ function createOrthogonalPoints(srcPort, tgtPort, sp, tp) {
   const parallel = (srcPort==='right'&&tgtPort==='left')||(srcPort==='left'&&tgtPort==='right')||(srcPort==='bottom'&&tgtPort==='top')||(srcPort==='top'&&tgtPort==='bottom');
 
   if (parallel && horiz) {
-    // Horizontal parallel: right→left or left→right
+    // Horizontal parallel: right→left or left→right with staggered midpoint
     const rawMidX = (sp.x + tp.x) / 2;
-    const midX = sp.x < tp.x ? Math.max(rawMidX, sp.x + minClear) : Math.min(rawMidX, sp.x - minClear);
+    const midX = sp.x < tp.x
+      ? Math.max(rawMidX, sp.x + Math.max(minClear, exitDist))
+      : Math.min(rawMidX, sp.x - Math.max(minClear, exitDist));
     if (Math.abs(tp.y - sp.y) < 1) {
       return [{ x: sp.x, y: sp.y }, { x: tp.x, y: tp.y }];
     }
@@ -1729,9 +1775,11 @@ function createOrthogonalPoints(srcPort, tgtPort, sp, tp) {
       { x: tp.x, y: tp.y }
     ];
   } else if (parallel && !horiz) {
-    // Vertical parallel: top→bottom or bottom→top
+    // Vertical parallel: top→bottom or bottom→top with staggered midpoint
     const rawMidY = (sp.y + tp.y) / 2;
-    const midY = sp.y < tp.y ? Math.max(rawMidY, sp.y + minClear) : Math.min(rawMidY, sp.y - minClear);
+    const midY = sp.y < tp.y
+      ? Math.max(rawMidY, sp.y + Math.max(minClear, exitDist))
+      : Math.min(rawMidY, sp.y - Math.max(minClear, exitDist));
     if (Math.abs(tp.x - sp.x) < 1) {
       return [{ x: sp.x, y: sp.y }, { x: tp.x, y: tp.y }];
     }
@@ -1742,19 +1790,61 @@ function createOrthogonalPoints(srcPort, tgtPort, sp, tp) {
       { x: tp.x, y: tp.y }
     ];
   } else if (horiz) {
-    // L-shape from horizontal port
+    // L-shape from horizontal port: exit horizontal with staggered distance, then vertical
+    const dir = srcPort === 'right' ? 1 : -1;
+    const exitX = sp.x + dir * exitDist;
+    // Check if we need a step (target not directly below/above exit point)
+    if (Math.abs(tp.x - exitX) < 5) {
+      // Simple L: go straight to target X then down
+      return [
+        { x: sp.x, y: sp.y },
+        { x: tp.x, y: sp.y },
+        { x: tp.x, y: tp.y }
+      ];
+    }
+    // Step pattern: exit horizontal, go vertical to target Y, then horizontal to target
     return [
       { x: sp.x, y: sp.y },
-      { x: tp.x, y: sp.y },
+      { x: exitX, y: sp.y },
+      { x: exitX, y: tp.y },
       { x: tp.x, y: tp.y }
     ];
   } else {
-    // L-shape from vertical port
-    return [
-      { x: sp.x, y: sp.y },
-      { x: sp.x, y: tp.y },
-      { x: tp.x, y: tp.y }
-    ];
+    // From vertical port: exit vertical with staggered distance
+    const tgtHoriz = tgtPort === 'left' || tgtPort === 'right';
+    const dir = srcPort === 'bottom' ? 1 : -1;
+    const exitY = sp.y + dir * exitDist;
+
+    if (tgtHoriz) {
+      // Target expects horizontal entry - create step pattern
+      // Clamp exitY to not overshoot target
+      const clampedExitY = srcPort === 'bottom'
+        ? Math.min(exitY, tp.y - 20)
+        : Math.max(exitY, tp.y + 20);
+      return [
+        { x: sp.x, y: sp.y },
+        { x: sp.x, y: clampedExitY },
+        { x: tp.x, y: clampedExitY },
+        { x: tp.x, y: tp.y }
+      ];
+    } else {
+      // Target expects vertical entry - L-shape with staggered exit
+      if (Math.abs(tp.y - exitY) < 5) {
+        // Simple L: go straight to target Y then across
+        return [
+          { x: sp.x, y: sp.y },
+          { x: sp.x, y: tp.y },
+          { x: tp.x, y: tp.y }
+        ];
+      }
+      // Step pattern: exit vertical, go horizontal to target X, then vertical to target
+      return [
+        { x: sp.x, y: sp.y },
+        { x: sp.x, y: exitY },
+        { x: tp.x, y: exitY },
+        { x: tp.x, y: tp.y }
+      ];
+    }
   }
 }
 
@@ -1979,7 +2069,7 @@ Architecture: ${input.trim()}`;
     finally { setLoading(false); }
   };
 
-  const loadDemo=async(k)=>{const d=DEMOS[k];if(!d)return;const r=await smartLayout(d);if(!r)return;pushHistory();setTitle(r.title);setNodes(r.nodes);setGroups(r.groups);setEdges(r.edges);setSel(null);setHasData(true);if(isMobile)setDrawerOpen(false);setTimeout(()=>zoomToFit(r.nodes,r.groups),100);};
+  const loadDemo=async(k)=>{const d=DEMOS[k];if(!d)return;let r;try{r=await smartLayout(d);}catch(e){console.warn('smartLayout failed, using autoLayout:',e);r=autoLayout(d);}if(!r)return;pushHistory();setTitle(r.title);setNodes(r.nodes);setGroups(r.groups);setEdges(r.edges);setSel(null);setHasData(true);if(isMobile)setDrawerOpen(false);setTimeout(()=>zoomToFit(r.nodes,r.groups),100);};
   const loadJson=()=>{try{const si=input.indexOf("{"),ei=input.lastIndexOf("}");if(si===-1)throw new Error("No JSON");const p=JSON.parse(input.slice(si,ei+1));p.nodes=(p.nodes||[]).filter(n=>ALL[n.type] || EXTERNAL_TYPES.has(n.type));p.groups=(p.groups||[]).filter(g=>GT[g.type]);const ids=new Set([...p.nodes.map(n=>n.id),...p.groups.map(g=>g.id)]);p.edges=(p.edges||[]).filter(e=>ids.has(e.from)&&ids.has(e.to));const r=autoLayout(p);if(!r)throw new Error("Layout failed");pushHistory();setTitle(r.title||"Custom");setNodes(r.nodes);setGroups(r.groups);setEdges(r.edges);setSel(null);setHasData(true);if(isMobile)setDrawerOpen(false);setTimeout(()=>zoomToFit(r.nodes,r.groups),100);}catch(e){alert("Invalid JSON: "+e.message);}};
   const addNode=useCallback(t=>{const id=`n${nid.current++}`;pushHistory();setNodes(p=>[...p,{id,type:t,label:ALL[t]?.name||t,techName:suggestName(t),x:400+(Math.random()-.5)*200-pan.x/zoom,y:300+(Math.random()-.5)*200-pan.y/zoom}]);setHasData(true);setEditMode(true);},[pan,zoom,pushHistory]);
   const addGroup=useCallback(tpl=>{const id=`g${gid.current++}`;pushHistory();setGroups(p=>[...p,{id,type:tpl.type,label:tpl.name,x:250+(Math.random()-.5)*100-pan.x/zoom,y:180+(Math.random()-.5)*100-pan.y/zoom,w:300,h:220,color:tpl.color,border:tpl.border,dash:tpl.dash}]);setHasData(true);setEditMode(true);},[pan,zoom,pushHistory]);
@@ -2493,9 +2583,11 @@ Architecture: ${input.trim()}`;
                 <g key={g.id}><rect x={g.x} y={g.y} width={g.collapsed?160:g.w} height={g.collapsed?40:g.h} rx={Math.max(6,10-d*2)} fill={g.color+fillOp} stroke={isSel?T.sel:g.border+(d>0?"40":"60")} strokeWidth={bw} strokeDasharray={g.dash?"8 4":"none"} style={{cursor:editMode?(connectFrom?"crosshair":"grab"):"default"}} onMouseDown={e=>onGroupDown(e,g.id)} onTouchStart={e=>onGroupDown(e,g.id)}/><rect x={g.x} y={g.y} width={g.collapsed?160:g.w} height={d>0?24:28} rx={Math.max(6,10-d*2)} fill={g.color+(d>0?"0c":"14")} style={{pointerEvents:"none"}}/>{!g.collapsed&&<rect x={g.x} y={g.y+(d>0?16:20)} width={g.w} height={8} fill={g.color+(d>0?"0c":"14")} style={{pointerEvents:"none"}}/>}<foreignObject x={g.x+4} y={g.y+4} width={18} height={18}><button type="button" aria-label={`${g.collapsed?"Expand":"Collapse"} group ${g.label}`} onClick={e=>{e.stopPropagation();pushHistory();setGroups(p=>p.map(gr=>gr.id===g.id?{...gr,collapsed:!gr.collapsed}:gr));}} style={{width:"16px",height:"16px",display:"flex",alignItems:"center",justifyContent:"center",padding:0,border:"none",borderRadius:"3px",background:g.border+"20",color:g.border,cursor:"pointer",fontSize:"10px",lineHeight:1}}>{g.collapsed?"▶":"▼"}</button></foreignObject><text x={g.x+(d>0?24:28)} y={g.y+(d>0?16:18)} fill={g.border} fontSize={d>0?10:11} fontWeight="600" fontFamily="Segoe UI" style={{pointerEvents:"none"}}>{g.label}{g.collapsed?" (collapsed)":""}</text>{cmp&&<g style={{pointerEvents:"none"}}><rect x={g.x+(d>0?8:12)+labelW+6} y={g.y+(d>0?6:8)} width={cmp.label.length*5+10} height={14} rx={3} fill={cmp.color}/><text x={g.x+(d>0?8:12)+labelW+6+cmp.label.length*2.5+5} y={g.y+(d>0?16:18)} textAnchor="middle" fill="white" fontSize="8" fontWeight="700" fontFamily="Consolas,monospace">{cmp.label}</text></g>}{hierViolations.has(g.id)&&<g style={{pointerEvents:"none"}}><title>Hierarchy violation</title><circle cx={g.x+g.w-8} cy={g.y+8} r={7} fill="#f59e0b"/><text x={g.x+g.w-8} y={g.y+12} textAnchor="middle" fill="white" fontSize="9" fontWeight="700" fontFamily="Segoe UI">!</text></g>}{editMode&&<><rect x={g.x+g.w-16} y={g.y+g.h-16} width={16} height={16} rx={4} fill="transparent" style={{cursor:"nwse-resize"}} onMouseDown={e=>onResizeDown(e,g.id)} onTouchStart={e=>onResizeDown(e,g.id)}/><path d={`M${g.x+g.w-5} ${g.y+g.h-12}L${g.x+g.w-5} ${g.y+g.h-5}L${g.x+g.w-12} ${g.y+g.h-5}`} fill="none" stroke={g.border+"40"} strokeWidth="1.5" style={{pointerEvents:"none"}}/></>}</g>
               );})}
               {(()=>{
-                // Precompute port assignments + multi-edge offsets
-                const portMap={}, sharedPorts={};
+                // Precompute port assignments + multi-edge offsets with intelligent load balancing
+                const portMap={}, sharedPorts={}, sharedTargetPorts={};
+                const nodePortLoads = {}; // Track port usage per node: { nodeId: { right: count, ... } }
                 const portOffset = ICON_SIZES[iconStyle].port;
+
                 edges.forEach(edge=>{
                   // Get visible endpoints (may be redirected to collapsed groups)
                   const visibleFrom = getVisibleEndpoint(edge.from);
@@ -2509,22 +2601,53 @@ Architecture: ${input.trim()}`;
 
                   const sA=resolveAnchor(visibleFrom,nodes,groups,portOffset), tA=resolveAnchor(visibleTo,nodes,groups,portOffset);
                   if(!sA||!tA)return;
-                  const {srcPort,tgtPort}=selectPorts(sA,tA);
+
+                  // Initialize port loads for this source node
+                  if (!nodePortLoads[visibleFrom]) {
+                    nodePortLoads[visibleFrom] = { right: 0, bottom: 0, left: 0, top: 0 };
+                  }
+
+                  // Use balanced port selection to prevent bunching
+                  const {srcPort,tgtPort}=selectBalancedPorts(sA,tA,nodePortLoads,visibleFrom);
+
+                  // Increment port usage counter
+                  nodePortLoads[visibleFrom][srcPort]++;
+
                   // Store whether edge was redirected for styling
                   const isRedirected = visibleFrom !== edge.from || visibleTo !== edge.to;
                   portMap[edge.id]={srcPort,tgtPort,sA,tA,visibleFrom,visibleTo,isRedirected};
+                  // Track shared source ports
                   const k=`${visibleFrom}:${srcPort}`;
                   if(!sharedPorts[k])sharedPorts[k]=[];
-                  sharedPorts[k].push({id:edge.id,tgtCy:tA.cy});
+                  sharedPorts[k].push({id:edge.id,tgtCy:tA.cy,srcCy:sA.cy});
+                  // Track shared target ports
+                  const tk=`${visibleTo}:${tgtPort}`;
+                  if(!sharedTargetPorts[tk])sharedTargetPorts[tk]=[];
+                  sharedTargetPorts[tk].push({id:edge.id,srcCy:sA.cy});
                 });
                 const edgeOff={};
+                const targetOff={};
+                // Offset edges sharing the same source port with staggered exit distances
                 Object.entries(sharedPorts).forEach(([k,list])=>{
                   if(list.length<2)return;
                   const port=k.split(':')[1];
                   list.sort((a,b)=>a.tgtCy-b.tgtCy);
                   list.forEach((item,i)=>{
                     const off=(i-(list.length-1)/2)*14;
-                    edgeOff[item.id]=port==='right'||port==='left'?{dx:0,dy:off}:{dx:off,dy:0};
+                    const exitDist = 25 + i * 12; // Stagger exit distances for cleaner routing
+                    edgeOff[item.id]=port==='right'||port==='left'
+                      ?{dx:0,dy:off,exitDist}
+                      :{dx:off,dy:0,exitDist};
+                  });
+                });
+                // Offset edges sharing the same target port (prevents arrow overlap)
+                Object.entries(sharedTargetPorts).forEach(([k,list])=>{
+                  if(list.length<2)return;
+                  const port=k.split(':')[1];
+                  list.sort((a,b)=>a.srcCy-b.srcCy);
+                  list.forEach((item,i)=>{
+                    const off=(i-(list.length-1)/2)*14;
+                    targetOff[item.id]=port==='right'||port==='left'?{dx:0,dy:off}:{dx:off,dy:0};
                   });
                 });
 
@@ -2548,8 +2671,9 @@ Architecture: ${input.trim()}`;
 
                   const { srcPort, tgtPort, sA, tA } = info;
                   const o = edgeOff[edge.id] || { dx: 0, dy: 0 };
+                  const to = targetOff[edge.id] || { dx: 0, dy: 0 };
                   const sp = { x: sA.ports[srcPort].x + o.dx, y: sA.ports[srcPort].y + o.dy };
-                  const tp = tA.ports[tgtPort];
+                  const tp = { x: tA.ports[tgtPort].x + to.dx, y: tA.ports[tgtPort].y + to.dy };
                   const isRedirected = info.isRedirected;
 
                   let baseX, baseY, isHorizontal = true;
@@ -2731,12 +2855,14 @@ Architecture: ${input.trim()}`;
                     // Fall back to computed orthogonal path with node avoidance
                     if(!info) return null;
                     const {srcPort,tgtPort,sA,tA}=info;
-                    const o=edgeOff[edge.id]||{dx:0,dy:0};
+                    const o=edgeOff[edge.id]||{dx:0,dy:0,exitDist:30};
+                    const to=targetOff[edge.id]||{dx:0,dy:0};
                     const sp={x:sA.ports[srcPort].x+o.dx,y:sA.ports[srcPort].y+o.dy};
-                    const tp=tA.ports[tgtPort];
+                    const tp={x:tA.ports[tgtPort].x+to.dx,y:tA.ports[tgtPort].y+to.dy};
 
-                    // Create initial bend points for the orthogonal path
-                    let pts = createOrthogonalPoints(srcPort, tgtPort, sp, tp);
+                    // Create initial bend points with staggered exit distance for multiple edges
+                    const exitDist = o.exitDist || 30;
+                    let pts = createOrthogonalPoints(srcPort, tgtPort, sp, tp, exitDist);
 
                     // Apply node avoidance to route around obstacles
                     pts = avoidNodes(pts, nodes, edge.from, edge.to, iSzEdge.node / 2 + 8);
