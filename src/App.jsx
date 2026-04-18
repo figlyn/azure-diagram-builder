@@ -1537,6 +1537,112 @@ function orthogonalPath(srcPort, tgtPort, sp, tp) {
   return segs.join(' ');
 }
 
+// Generate orthogonal bend points (same logic as orthogonalPath but returns array of points)
+function createOrthogonalPoints(srcPort, tgtPort, sp, tp) {
+  const clearance = 40;
+  const minClear = 50;
+  const sameSide = srcPort === tgtPort;
+
+  if (sameSide) {
+    // U-shape: both ports on same side
+    if (srcPort === 'top' || srcPort === 'bottom') {
+      const dir = srcPort === 'top' ? -1 : 1;
+      const spread = Math.abs(tp.x - sp.x);
+      const dynamicClear = clearance + Math.min(spread * 0.15, 60);
+      const peakY = (srcPort === 'top' ? Math.min(sp.y, tp.y) : Math.max(sp.y, tp.y)) + dir * dynamicClear;
+      return [
+        { x: sp.x, y: sp.y },
+        { x: sp.x, y: peakY },
+        { x: tp.x, y: peakY },
+        { x: tp.x, y: tp.y }
+      ];
+    } else {
+      // Horizontal U-shape
+      const dir = srcPort === 'left' ? -1 : 1;
+      const peakX = (srcPort === 'left' ? Math.min(sp.x, tp.x) : Math.max(sp.x, tp.x)) + dir * clearance;
+      return [
+        { x: sp.x, y: sp.y },
+        { x: peakX, y: sp.y },
+        { x: peakX, y: tp.y },
+        { x: tp.x, y: tp.y }
+      ];
+    }
+  }
+
+  const horiz = srcPort === 'right' || srcPort === 'left';
+  const parallel = (srcPort==='right'&&tgtPort==='left')||(srcPort==='left'&&tgtPort==='right')||(srcPort==='bottom'&&tgtPort==='top')||(srcPort==='top'&&tgtPort==='bottom');
+
+  if (parallel && horiz) {
+    // Horizontal parallel: right→left or left→right
+    const rawMidX = (sp.x + tp.x) / 2;
+    const midX = sp.x < tp.x ? Math.max(rawMidX, sp.x + minClear) : Math.min(rawMidX, sp.x - minClear);
+    if (Math.abs(tp.y - sp.y) < 1) {
+      return [{ x: sp.x, y: sp.y }, { x: tp.x, y: tp.y }];
+    }
+    return [
+      { x: sp.x, y: sp.y },
+      { x: midX, y: sp.y },
+      { x: midX, y: tp.y },
+      { x: tp.x, y: tp.y }
+    ];
+  } else if (parallel && !horiz) {
+    // Vertical parallel: top→bottom or bottom→top
+    const rawMidY = (sp.y + tp.y) / 2;
+    const midY = sp.y < tp.y ? Math.max(rawMidY, sp.y + minClear) : Math.min(rawMidY, sp.y - minClear);
+    if (Math.abs(tp.x - sp.x) < 1) {
+      return [{ x: sp.x, y: sp.y }, { x: tp.x, y: tp.y }];
+    }
+    return [
+      { x: sp.x, y: sp.y },
+      { x: sp.x, y: midY },
+      { x: tp.x, y: midY },
+      { x: tp.x, y: tp.y }
+    ];
+  } else if (horiz) {
+    // L-shape from horizontal port
+    return [
+      { x: sp.x, y: sp.y },
+      { x: tp.x, y: sp.y },
+      { x: tp.x, y: tp.y }
+    ];
+  } else {
+    // L-shape from vertical port
+    return [
+      { x: sp.x, y: sp.y },
+      { x: sp.x, y: tp.y },
+      { x: tp.x, y: tp.y }
+    ];
+  }
+}
+
+// Generate SVG path from array of points with rounded corners
+function generatePathFromPoints(pts) {
+  if (!pts || pts.length < 2) return '';
+  const r = EDGE_CR;
+  const segs = [`M ${pts[0].x},${pts[0].y}`];
+
+  for (let i = 1; i < pts.length; i++) {
+    const prev = pts[i-1], curr = pts[i], next = pts[i+1];
+    if (next && i < pts.length - 1) {
+      // Add rounded corner
+      const dx1 = curr.x - prev.x, dy1 = curr.y - prev.y;
+      const dx2 = next.x - curr.x, dy2 = next.y - curr.y;
+      const len1 = Math.hypot(dx1, dy1), len2 = Math.hypot(dx2, dy2);
+      if (len1 < 3 || len2 < 3) {
+        segs.push(`L ${curr.x},${curr.y}`);
+      } else {
+        const cr = Math.min(r, len1/2, len2/2);
+        const bx = curr.x - (dx1/len1)*cr, by = curr.y - (dy1/len1)*cr;
+        const ax = curr.x + (dx2/len2)*cr, ay = curr.y + (dy2/len2)*cr;
+        segs.push(`L ${bx},${by}`, `Q ${curr.x},${curr.y} ${ax},${ay}`);
+      }
+    } else {
+      segs.push(`L ${curr.x},${curr.y}`);
+    }
+  }
+  return segs.join(' ');
+}
+
 function edgeLabelXY(srcPort, tgtPort, sp, tp) {
   // U-shape: label on the horizontal segment
   if (srcPort === tgtPort) {
@@ -2476,14 +2582,25 @@ Architecture: ${input.trim()}`;
                     const midIdx = Math.floor(pts.length / 2);
                     lp = labelPositions[edge.id] || { x: pts[midIdx].x, y: pts[midIdx].y - 15 };
                   } else {
-                    // Fall back to computed orthogonal path
+                    // Fall back to computed orthogonal path with node avoidance
                     if(!info) return null;
                     const {srcPort,tgtPort,sA,tA}=info;
                     const o=edgeOff[edge.id]||{dx:0,dy:0};
                     const sp={x:sA.ports[srcPort].x+o.dx,y:sA.ports[srcPort].y+o.dy};
                     const tp=tA.ports[tgtPort];
-                    p=orthogonalPath(srcPort,tgtPort,sp,tp);
-                    lp=labelPositions[edge.id] || edgeLabelXY(srcPort,tgtPort,sp,tp);
+
+                    // Create initial bend points for the orthogonal path
+                    let pts = createOrthogonalPoints(srcPort, tgtPort, sp, tp);
+
+                    // Apply node avoidance to route around obstacles
+                    pts = avoidNodes(pts, nodes, edge.from, edge.to, iSzEdge.node / 2 + 8);
+
+                    // Generate path from points with rounded corners
+                    p = generatePathFromPoints(pts);
+
+                    // Label at midpoint of points
+                    const midIdx = Math.floor(pts.length / 2);
+                    lp = labelPositions[edge.id] || { x: pts[midIdx].x, y: pts[midIdx].y - 15 };
                   }
 
                   // WAF-20: trust_boundary is thick red dashed line
