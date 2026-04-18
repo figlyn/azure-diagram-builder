@@ -636,6 +636,595 @@ async function elkLayout(data) {
   }
 }
 
+// ===== ELK LAYOUT WITH OPTIONS (configurable direction/constraints) =====
+async function elkLayoutWithOptions(data, options = {}) {
+  const nds = (data.nodes||[]).filter(n=>ALL[n.type] || EXTERNAL_TYPES.has(n.type));
+  const grps = data.groups||[];
+  const edgeList = data.edges||[];
+  if (!nds.length && !grps.length) return null;
+
+  const direction = options.direction || 'RIGHT';
+  const tierMap = options.tierMap || {};
+  const tiers = options.tiers || [];
+
+  // Build parent mapping
+  const parentOf = {};
+  const grpIds = new Set(grps.map(g=>g.id));
+  grps.forEach(g => {
+    (g.children||[]).forEach(cid => {
+      if (grpIds.has(cid)) parentOf[cid] = g.id;
+    });
+  });
+
+  // Find root groups
+  const roots = grps.filter(g => !parentOf[g.id]);
+
+  // Recursively build ELK children
+  function buildChildren(parentId) {
+    const children = [];
+    const group = grps.find(g => g.id === parentId);
+    if (!group) return children;
+
+    (group.children || []).forEach(cid => {
+      const childGroup = grps.find(g => g.id === cid);
+      if (childGroup) {
+        children.push({
+          id: cid,
+          labels: [{ text: childGroup.label || '' }],
+          layoutOptions: {
+            'elk.padding': '[top=50,left=25,bottom=25,right=25]',
+            'elk.portConstraints': 'FIXED_SIDE'
+          },
+          children: buildChildren(cid)
+        });
+      } else {
+        const node = nds.find(n => n.id === cid);
+        if (node) {
+          // Determine layer constraint based on tier hints
+          let layerConstraint = null;
+          if (tiers.length > 0 && direction === 'DOWN') {
+            const nodeType = node.type;
+            for (let i = 0; i < tiers.length; i++) {
+              const tierName = tiers[i];
+              const tierTypes = tierMap[tierName] || [];
+              if (tierTypes.includes(nodeType)) {
+                layerConstraint = i;
+                break;
+              }
+            }
+          }
+          const nodeEntry = {
+            id: node.id,
+            width: 72,
+            height: 90,
+            labels: [{ text: node.label || '' }]
+          };
+          if (layerConstraint !== null) {
+            nodeEntry.layoutOptions = { 'elk.layered.layering.layerId': String(layerConstraint) };
+          }
+          children.push(nodeEntry);
+        }
+      }
+    });
+    return children;
+  }
+
+  // Build top-level children (root groups + ungrouped nodes)
+  const topChildren = [];
+
+  roots.forEach(g => {
+    topChildren.push({
+      id: g.id,
+      labels: [{ text: g.label || '' }],
+      layoutOptions: {
+        'elk.padding': '[top=60,left=30,bottom=30,right=30]',
+        'elk.portConstraints': 'FIXED_SIDE'
+      },
+      children: buildChildren(g.id)
+    });
+  });
+
+  // Find ungrouped nodes
+  const groupedNodeIds = new Set();
+  const collectGroupedNodes = (gid) => {
+    const g = grps.find(gr => gr.id === gid);
+    if (!g) return;
+    (g.children || []).forEach(cid => {
+      if (grpIds.has(cid)) collectGroupedNodes(cid);
+      else groupedNodeIds.add(cid);
+    });
+  };
+  grps.forEach(g => collectGroupedNodes(g.id));
+
+  nds.filter(n => !groupedNodeIds.has(n.id)).forEach(n => {
+    let layerConstraint = null;
+    if (tiers.length > 0 && direction === 'DOWN') {
+      for (let i = 0; i < tiers.length; i++) {
+        const tierTypes = tierMap[tiers[i]] || [];
+        if (tierTypes.includes(n.type)) {
+          layerConstraint = i;
+          break;
+        }
+      }
+    }
+    const nodeEntry = {
+      id: n.id,
+      width: 72,
+      height: 90,
+      labels: [{ text: n.label || '' }]
+    };
+    if (layerConstraint !== null) {
+      nodeEntry.layoutOptions = { 'elk.layered.layering.layerId': String(layerConstraint) };
+    }
+    topChildren.push(nodeEntry);
+  });
+
+  // Build edges
+  const elkEdges = edgeList.map((e, i) => ({
+    id: `e${i}`,
+    sources: [e.from],
+    targets: [e.to],
+    labels: e.label ? [{ text: e.label, width: Math.max(40, e.label.length * 7), height: 18 }] : []
+  }));
+
+  const elkGraph = {
+    id: 'root',
+    layoutOptions: {
+      'elk.algorithm': 'layered',
+      'elk.direction': direction,
+      'elk.spacing.nodeNode': '50',
+      'elk.layered.spacing.nodeNodeBetweenLayers': '100',
+      'elk.spacing.componentComponent': '80',
+      'elk.spacing.edgeNode': '50',
+      'elk.spacing.edgeEdge': '25',
+      'elk.edgeRouting': 'ORTHOGONAL',
+      'elk.hierarchyHandling': 'INCLUDE_CHILDREN',
+      'elk.layered.nodePlacement.strategy': 'NETWORK_SIMPLEX',
+      'elk.layered.crossingMinimization.strategy': 'LAYER_SWEEP',
+    },
+    children: topChildren,
+    edges: elkEdges
+  };
+
+  try {
+    const result = await elk.layout(elkGraph);
+
+    const nodePositions = {};
+    const groupData = {};
+
+    const extractPositions = (elkNode, offsetX = 0, offsetY = 0) => {
+      const x = (elkNode.x || 0) + offsetX;
+      const y = (elkNode.y || 0) + offsetY;
+
+      if (elkNode.children && elkNode.children.length > 0) {
+        groupData[elkNode.id] = { x, y, w: elkNode.width || 200, h: elkNode.height || 150 };
+        elkNode.children.forEach(c => extractPositions(c, x, y));
+      } else {
+        nodePositions[elkNode.id] = {
+          x: x + (elkNode.width || 72) / 2,
+          y: y + (elkNode.height || 90) / 2
+        };
+      }
+    };
+
+    (result.children || []).forEach(c => extractPositions(c, 0, 0));
+
+    // Compute depth for each group
+    const depth = {};
+    const setDepth = (gid, d) => {
+      depth[gid] = d;
+      const g = grps.find(gr => gr.id === gid);
+      if (g) {
+        (g.children || []).filter(c => grpIds.has(c)).forEach(cid => setDepth(cid, d + 1));
+      }
+    };
+    roots.forEach(g => setDepth(g.id, 0));
+
+    return {
+      title: data.title,
+      nodes: nds.map(n => ({
+        id: n.id, type: n.type, label: n.label,
+        ...(n.techName ? { techName: n.techName } : {}),
+        ...(n.wafPillar ? { wafPillar: n.wafPillar } : {}),
+        x: nodePositions[n.id]?.x ?? 300,
+        y: nodePositions[n.id]?.y ?? 300
+      })),
+      groups: grps.filter(g => GT[g.type] && groupData[g.id]).map(g => {
+        const pos = groupData[g.id];
+        const tpl = GT[g.type] || GT.rg;
+        return {
+          id: g.id, type: g.type, label: g.label,
+          x: pos.x, y: pos.y, w: pos.w, h: pos.h,
+          color: tpl.color, border: tpl.border, dash: !!tpl.dash,
+          depth: depth[g.id] || 0, children: g.children || [],
+          ...(g.collapsed ? { collapsed: true } : {}),
+          ...(g.compliance ? { compliance: g.compliance } : {})
+        };
+      }),
+      edges: edgeList.map((e, i) => ({
+        id: `e${i}`, from: e.from, to: e.to,
+        label: e.label || '', style: e.style || 'solid',
+        bendPoints: null,
+        ...(e.classification ? { classification: e.classification } : {})
+      }))
+    };
+  } catch (err) {
+    console.error('ELK layout with options failed:', err);
+    return null;
+  }
+}
+
+// ===== LAYOUT: FLOW (directional ELK) =====
+async function layoutFlow(data, hints) {
+  const direction = hints.flowDirection === 'top-to-bottom' ? 'DOWN' : 'RIGHT';
+  return await elkLayoutWithOptions(data, { direction });
+}
+
+// ===== LAYOUT: HIERARCHICAL (top-to-bottom tiers) =====
+async function layoutHierarchical(data, hints) {
+  // Tier detection heuristics - maps tier names to node types
+  const TIER_MAP = {
+    ingress: ['frontdoor', 'appgw', 'cdn', 'apim', 'lb', 'firewall', 'dns'],
+    web: ['appservice', 'functions', 'container', 'vmss'],
+    app: ['aks', 'appservice', 'functions', 'container', 'vmss', 'vm', 'logicapp'],
+    api: ['apim', 'functions', 'appservice', 'container'],
+    data: ['sqldb', 'cosmos', 'redis', 'storage', 'synapse', 'datafactory', 'eventhub'],
+    security: ['keyvault', 'entra', 'sentinel', 'condaccess', 'nsg'],
+    monitoring: ['monitor', 'appinsights', 'loganalytics']
+  };
+
+  const tiers = hints.tiers || ['ingress', 'app', 'data'];
+  return await elkLayoutWithOptions(data, { direction: 'DOWN', tierMap: TIER_MAP, tiers });
+}
+
+// ===== LAYOUT: ZONES (left-to-right zones) =====
+function layoutZones(data, hints) {
+  const nds = (data.nodes||[]).filter(n=>ALL[n.type] || EXTERNAL_TYPES.has(n.type));
+  const grps = data.groups||[];
+  const edgeList = data.edges||[];
+
+  const zones = hints.zones || ['on-prem', 'azure', 'external'];
+  const ZONE_WIDTH = 350, ZONE_GAP = 80, NODE_W = 72, NODE_H = 74;
+
+  // Map group types to zones
+  const TYPE_TO_ZONE = {
+    'onprem': 'on-prem',
+    'region': 'azure',
+    'rg': 'azure',
+    'vnet_grp': 'azure',
+    'subnet_grp': 'azure',
+    'aks_grp': 'azure',
+    'custom': 'external'
+  };
+
+  // Determine which zone each group belongs to
+  const groupZone = {};
+  grps.forEach(g => {
+    groupZone[g.id] = TYPE_TO_ZONE[g.type] || 'azure';
+  });
+
+  // Build parent mapping
+  const parentOf = {};
+  const grpIds = new Set(grps.map(g=>g.id));
+  grps.forEach(g => {
+    (g.children||[]).forEach(cid => {
+      if (grpIds.has(cid)) parentOf[cid] = g.id;
+    });
+  });
+
+  // Find which zone each node belongs to based on its containing group
+  const nodeZone = {};
+  nds.forEach(n => {
+    let zone = 'azure'; // default
+    for (const g of grps) {
+      if ((g.children||[]).includes(n.id)) {
+        // Find root group to determine zone
+        let gid = g.id;
+        while (parentOf[gid]) gid = parentOf[gid];
+        zone = groupZone[gid] || 'azure';
+        break;
+      }
+    }
+    nodeZone[n.id] = zone;
+  });
+
+  // Group nodes by zone
+  const zoneNodes = {};
+  zones.forEach(z => { zoneNodes[z] = []; });
+  nds.forEach(n => {
+    const z = nodeZone[n.id] || 'azure';
+    if (zoneNodes[z]) zoneNodes[z].push(n);
+    else zoneNodes['azure'].push(n); // fallback
+  });
+
+  // Position nodes within each zone
+  const nPos = {};
+  let zoneX = 50;
+  zones.forEach(zone => {
+    const zNodes = zoneNodes[zone] || [];
+    let y = 80;
+    zNodes.forEach((n, i) => {
+      nPos[n.id] = {
+        x: zoneX + ZONE_WIDTH / 2,
+        y: y + NODE_H / 2
+      };
+      y += NODE_H + 20;
+    });
+    zoneX += ZONE_WIDTH + ZONE_GAP;
+  });
+
+  // Position groups - place them around their contained nodes
+  const gPos = {};
+  const gSize = {};
+  const depth = {};
+
+  // Calculate depth
+  const roots = grps.filter(g => !parentOf[g.id]);
+  function setDepth(gid, d) {
+    depth[gid] = d;
+    const g = grps.find(gr => gr.id === gid);
+    if (g) (g.children||[]).filter(c => grpIds.has(c)).forEach(cid => setDepth(cid, d + 1));
+  }
+  roots.forEach(g => setDepth(g.id, 0));
+
+  // Size and position groups based on their children
+  function sizeAndPositionGroup(gid) {
+    const g = grps.find(gr => gr.id === gid);
+    if (!g) return;
+
+    const childGroupIds = (g.children||[]).filter(c => grpIds.has(c));
+    const childNodeIds = (g.children||[]).filter(c => !grpIds.has(c));
+
+    // Process child groups first
+    childGroupIds.forEach(cgid => sizeAndPositionGroup(cgid));
+
+    // Collect all child positions
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+
+    childNodeIds.forEach(nid => {
+      const p = nPos[nid];
+      if (p) {
+        minX = Math.min(minX, p.x - NODE_W/2);
+        minY = Math.min(minY, p.y - NODE_H/2);
+        maxX = Math.max(maxX, p.x + NODE_W/2);
+        maxY = Math.max(maxY, p.y + NODE_H/2);
+      }
+    });
+
+    childGroupIds.forEach(cgid => {
+      const cp = gPos[cgid];
+      const cs = gSize[cgid];
+      if (cp && cs) {
+        minX = Math.min(minX, cp.x);
+        minY = Math.min(minY, cp.y);
+        maxX = Math.max(maxX, cp.x + cs.w);
+        maxY = Math.max(maxY, cp.y + cs.h);
+      }
+    });
+
+    if (minX === Infinity) {
+      // No children with positions - use zone default
+      const zone = groupZone[gid] || 'azure';
+      const zoneIdx = zones.indexOf(zone);
+      const x = 50 + zoneIdx * (ZONE_WIDTH + ZONE_GAP);
+      gPos[gid] = { x, y: 60 };
+      gSize[gid] = { w: 200, h: 150 };
+    } else {
+      const pad = 25;
+      const topPad = 45;
+      gPos[gid] = { x: minX - pad, y: minY - topPad };
+      gSize[gid] = { w: maxX - minX + pad * 2, h: maxY - minY + topPad + pad };
+    }
+  }
+
+  // Process root groups
+  roots.forEach(g => sizeAndPositionGroup(g.id));
+
+  // Sort groups by depth for rendering
+  const sortedGrps = [...grps].sort((a,b) => (depth[a.id]||0) - (depth[b.id]||0));
+
+  return {
+    title: data.title,
+    nodes: nds.map(n => ({
+      id: n.id, type: n.type, label: n.label,
+      ...(n.techName ? { techName: n.techName } : {}),
+      ...(n.wafPillar ? { wafPillar: n.wafPillar } : {}),
+      x: nPos[n.id]?.x ?? 300,
+      y: nPos[n.id]?.y ?? 300
+    })),
+    groups: sortedGrps.filter(g => GT[g.type] && gPos[g.id]).map(g => {
+      const pos = gPos[g.id];
+      const size = gSize[g.id];
+      const tpl = GT[g.type] || GT.rg;
+      return {
+        id: g.id, type: g.type, label: g.label,
+        x: pos.x, y: pos.y, w: size.w, h: size.h,
+        color: tpl.color, border: tpl.border, dash: !!tpl.dash,
+        depth: depth[g.id] || 0, children: g.children || [],
+        ...(g.collapsed ? { collapsed: true } : {}),
+        ...(g.compliance ? { compliance: g.compliance } : {})
+      };
+    }),
+    edges: edgeList.map((e, i) => ({
+      id: `e${i}`, from: e.from, to: e.to,
+      label: e.label || '', style: e.style || 'solid',
+      bendPoints: null,
+      ...(e.classification ? { classification: e.classification } : {})
+    }))
+  };
+}
+
+// ===== LAYOUT: HUB-SPOKE (radial around central hub) =====
+function findMostConnectedNode(nodes, edges) {
+  const counts = {};
+  edges.forEach(e => {
+    counts[e.from] = (counts[e.from] || 0) + 1;
+    counts[e.to] = (counts[e.to] || 0) + 1;
+  });
+  let maxId = nodes[0]?.id;
+  let maxCount = 0;
+  for (const id in counts) {
+    if (counts[id] > maxCount) { maxCount = counts[id]; maxId = id; }
+  }
+  return maxId;
+}
+
+function layoutHubSpoke(data, hints) {
+  const nds = (data.nodes||[]).filter(n=>ALL[n.type] || EXTERNAL_TYPES.has(n.type));
+  const grps = data.groups||[];
+  const edgeList = data.edges||[];
+
+  const NODE_W = 72, NODE_H = 74;
+
+  // Find hub: from hints or most-connected node
+  const hubId = hints.hubNode || findMostConnectedNode(nds, edgeList);
+  const hub = nds.find(n => n.id === hubId);
+  const spokes = nds.filter(n => n.id !== hubId);
+
+  // Position hub at center
+  const centerX = 450, centerY = 350;
+
+  const nPos = {};
+  if (hub) {
+    nPos[hub.id] = { x: centerX, y: centerY };
+  }
+
+  // Arrange spokes radially
+  const radius = Math.max(180, spokes.length * 45);
+  spokes.forEach((spoke, i) => {
+    const angle = (2 * Math.PI * i) / spokes.length - Math.PI/2; // start from top
+    nPos[spoke.id] = {
+      x: centerX + radius * Math.cos(angle),
+      y: centerY + radius * Math.sin(angle)
+    };
+  });
+
+  // Build parent mapping for groups
+  const parentOf = {};
+  const grpIds = new Set(grps.map(g=>g.id));
+  grps.forEach(g => {
+    (g.children||[]).forEach(cid => {
+      if (grpIds.has(cid)) parentOf[cid] = g.id;
+    });
+  });
+
+  // Calculate depth
+  const depth = {};
+  const roots = grps.filter(g => !parentOf[g.id]);
+  function setDepth(gid, d) {
+    depth[gid] = d;
+    const g = grps.find(gr => gr.id === gid);
+    if (g) (g.children||[]).filter(c => grpIds.has(c)).forEach(cid => setDepth(cid, d + 1));
+  }
+  roots.forEach(g => setDepth(g.id, 0));
+
+  // Position groups based on their contained nodes
+  const gPos = {};
+  const gSize = {};
+
+  function sizeAndPositionGroup(gid) {
+    const g = grps.find(gr => gr.id === gid);
+    if (!g) return;
+
+    const childGroupIds = (g.children||[]).filter(c => grpIds.has(c));
+    const childNodeIds = (g.children||[]).filter(c => !grpIds.has(c));
+
+    // Process child groups first
+    childGroupIds.forEach(cgid => sizeAndPositionGroup(cgid));
+
+    // Collect all child positions
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+
+    childNodeIds.forEach(nid => {
+      const p = nPos[nid];
+      if (p) {
+        minX = Math.min(minX, p.x - NODE_W/2);
+        minY = Math.min(minY, p.y - NODE_H/2);
+        maxX = Math.max(maxX, p.x + NODE_W/2);
+        maxY = Math.max(maxY, p.y + NODE_H/2);
+      }
+    });
+
+    childGroupIds.forEach(cgid => {
+      const cp = gPos[cgid];
+      const cs = gSize[cgid];
+      if (cp && cs) {
+        minX = Math.min(minX, cp.x);
+        minY = Math.min(minY, cp.y);
+        maxX = Math.max(maxX, cp.x + cs.w);
+        maxY = Math.max(maxY, cp.y + cs.h);
+      }
+    });
+
+    if (minX === Infinity) {
+      // No children with positions - default position
+      gPos[gid] = { x: centerX - 100, y: centerY - 75 };
+      gSize[gid] = { w: 200, h: 150 };
+    } else {
+      const pad = 25;
+      const topPad = 45;
+      gPos[gid] = { x: minX - pad, y: minY - topPad };
+      gSize[gid] = { w: maxX - minX + pad * 2, h: maxY - minY + topPad + pad };
+    }
+  }
+
+  // Process root groups
+  roots.forEach(g => sizeAndPositionGroup(g.id));
+
+  // Sort groups by depth for rendering
+  const sortedGrps = [...grps].sort((a,b) => (depth[a.id]||0) - (depth[b.id]||0));
+
+  return {
+    title: data.title,
+    nodes: nds.map(n => ({
+      id: n.id, type: n.type, label: n.label,
+      ...(n.techName ? { techName: n.techName } : {}),
+      ...(n.wafPillar ? { wafPillar: n.wafPillar } : {}),
+      x: nPos[n.id]?.x ?? centerX,
+      y: nPos[n.id]?.y ?? centerY
+    })),
+    groups: sortedGrps.filter(g => GT[g.type] && gPos[g.id]).map(g => {
+      const pos = gPos[g.id];
+      const size = gSize[g.id];
+      const tpl = GT[g.type] || GT.rg;
+      return {
+        id: g.id, type: g.type, label: g.label,
+        x: pos.x, y: pos.y, w: size.w, h: size.h,
+        color: tpl.color, border: tpl.border, dash: !!tpl.dash,
+        depth: depth[g.id] || 0, children: g.children || [],
+        ...(g.collapsed ? { collapsed: true } : {}),
+        ...(g.compliance ? { compliance: g.compliance } : {})
+      };
+    }),
+    edges: edgeList.map((e, i) => ({
+      id: `e${i}`, from: e.from, to: e.to,
+      label: e.label || '', style: e.style || 'solid',
+      bendPoints: null,
+      ...(e.classification ? { classification: e.classification } : {})
+    }))
+  };
+}
+
+// ===== INTELLIGENT LAYOUT SELECTION (smartLayout router) =====
+async function smartLayout(data) {
+  const layout = data.layout || 'auto';
+  const hints = data.layoutHints || {};
+
+  switch (layout) {
+    case 'hub-spoke':
+      return layoutHubSpoke(data, hints);
+    case 'hierarchical':
+      return await layoutHierarchical(data, hints);
+    case 'zones':
+      return layoutZones(data, hints);
+    case 'flow':
+      return await layoutFlow(data, hints);
+    case 'auto':
+    default:
+      return await elkLayout(data) || autoLayout(data);
+  }
+}
+
 // ===== ORTHOGONAL EDGE ROUTING (Manhattan paths with rounded corners) =====
 const EDGE_CR = 8; // corner radius
 const CONTAINER_CLEARANCE = 50; // clearance above containers for edge routing
@@ -654,6 +1243,28 @@ function segmentIntersectsContainer(p1, p2, g) {
     const minY = Math.min(p1.y, p2.y), maxY = Math.max(p1.y, p2.y);
     return x > g.x && x < g.x + g.w && maxY > g.y && minY < g.y + g.h;
   }
+  return false;
+}
+
+// Check if a line segment intersects with a node icon
+function segmentIntersectsNode(p1, p2, node, nodeRadius = 36) {
+  const left = node.x - nodeRadius, right = node.x + nodeRadius;
+  const top = node.y - nodeRadius, bottom = node.y + nodeRadius;
+
+  // For horizontal segments
+  if (Math.abs(p1.y - p2.y) < 2) {
+    const y = p1.y;
+    const minX = Math.min(p1.x, p2.x), maxX = Math.max(p1.x, p2.x);
+    return y > top && y < bottom && maxX > left && minX < right;
+  }
+
+  // For vertical segments
+  if (Math.abs(p1.x - p2.x) < 2) {
+    const x = p1.x;
+    const minY = Math.min(p1.y, p2.y), maxY = Math.max(p1.y, p2.y);
+    return x > left && x < right && maxY > top && minY < bottom;
+  }
+
   return false;
 }
 
@@ -739,6 +1350,70 @@ function avoidContainers(pts, groups, sourceId, targetId) {
         { x: end.x, y: end.y }
       ];
     }
+  }
+}
+
+const NODE_CLEARANCE = 45; // Pixels to clear around nodes for edge routing
+
+// Route edges around node obstacles
+function avoidNodes(pts, nodes, sourceId, targetId, nodeRadius = 36) {
+  if (!pts || pts.length < 2) return pts;
+
+  // Filter out source and target - they're not obstacles
+  const obstacles = nodes.filter(n => n.id !== sourceId && n.id !== targetId);
+  if (obstacles.length === 0) return pts;
+
+  // Check each segment for node intersections
+  const crossedNodes = [];
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p1 = pts[i], p2 = pts[i+1];
+    obstacles.forEach(n => {
+      if (segmentIntersectsNode(p1, p2, n, nodeRadius) && !crossedNodes.some(cn => cn.id === n.id)) {
+        crossedNodes.push(n);
+      }
+    });
+  }
+
+  if (crossedNodes.length === 0) return pts;
+
+  // Reroute around obstacles
+  const start = pts[0], end = pts[pts.length - 1];
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+
+  if (Math.abs(dx) > Math.abs(dy)) {
+    // Horizontal-dominant path - go around vertically (above or below)
+    const maxBottom = Math.max(...crossedNodes.map(n => n.y + nodeRadius));
+    const minTop = Math.min(...crossedNodes.map(n => n.y - nodeRadius));
+
+    // Choose shorter detour
+    const goOverTop = (start.y - minTop) < (maxBottom - start.y);
+    const routeY = goOverTop
+      ? Math.max(minTop - NODE_CLEARANCE, 20)
+      : maxBottom + NODE_CLEARANCE;
+
+    return [
+      { x: start.x, y: start.y },
+      { x: start.x, y: routeY },
+      { x: end.x, y: routeY },
+      { x: end.x, y: end.y }
+    ];
+  } else {
+    // Vertical-dominant path - go around horizontally (left or right)
+    const maxRight = Math.max(...crossedNodes.map(n => n.x + nodeRadius));
+    const minLeft = Math.min(...crossedNodes.map(n => n.x - nodeRadius));
+
+    const goLeft = (start.x - minLeft) < (maxRight - start.x);
+    const routeX = goLeft
+      ? Math.max(minLeft - NODE_CLEARANCE, 20)
+      : maxRight + NODE_CLEARANCE;
+
+    return [
+      { x: start.x, y: start.y },
+      { x: routeX, y: start.y },
+      { x: routeX, y: end.y },
+      { x: end.x, y: end.y }
+    ];
   }
 }
 
@@ -972,7 +1647,7 @@ export default function App(){
     try {
       const prompt = `Return ONLY a JSON object for an Azure deployment diagram. No markdown, no backticks, no explanation.
 
-Schema: {"title":"str","groups":[{"id":"g1","type":"rg","label":"str","children":["n1","g2"],"compliance":"pci"}],"nodes":[{"id":"n1","type":"vm","label":"str","techName":"str"}],"edges":[{"from":"n1","to":"n2","label":"","style":"solid","classification":"confidential"}]}
+Schema: {"title":"str","layout":"auto|hub-spoke|hierarchical|zones|flow","layoutHints":{},"groups":[{"id":"g1","type":"rg","label":"str","children":["n1","g2"],"compliance":"pci"}],"nodes":[{"id":"n1","type":"vm","label":"str","techName":"str"}],"edges":[{"from":"n1","to":"n2","label":"","style":"solid","classification":"confidential"}]}
 
 Node fields: label = business/context name (e.g. "Order Processing API", "Customer Database"), techName = CAF-compliant resource name (e.g. "app-orders-prod-001", "sql-customers-prod-001"). Both are required for every node.
 Node types: ${SERVICE_TYPES}
@@ -998,6 +1673,27 @@ Use vnet-<workload>-<env>-<region> for VNet labels. Use snet-<purpose> for Subne
 Example techNames: vm-web-prod-001, app-orders-prod-001, sql-customers-prod-001
 Example labels: "Web Server", "Order Processing API", "Customer Database"
 
+LAYOUT SELECTION (choose based on architecture pattern):
+- "hub-spoke": Central hub with spokes radiating outward
+  USE FOR: VNet peering, shared services hub, central firewall/gateway
+  SET layoutHints.hubNode to the central node ID (firewall, gateway, hub VNet)
+- "hierarchical": Top-to-bottom tiers (ingress → app → data)
+  USE FOR: N-tier web apps, API architectures, request-response flows
+  SET layoutHints.tiers: ["ingress", "app", "data"]
+- "zones": Left-to-right zones (on-prem | cloud | external)
+  USE FOR: Hybrid cloud, multi-cloud, security zones, trust boundaries
+  SET layoutHints.zones: ["on-prem", "azure", "external"]
+- "flow": Left-to-right pipeline (sequential processing)
+  USE FOR: ETL pipelines, event processing, CI/CD, message queues
+  SET layoutHints.flowDirection: "left-to-right" or "top-to-bottom"
+- "auto": Let layout engine decide (default if unclear)
+
+LAYOUT EXAMPLES:
+- "Hub-spoke enterprise network" → layout:"hub-spoke", layoutHints:{hubNode:"firewall-id"}
+- "3-tier e-commerce platform" → layout:"hierarchical", layoutHints:{tiers:["web","api","data"]}
+- "Hybrid cloud with on-prem DC" → layout:"zones", layoutHints:{zones:["on-prem","azure","partners"]}
+- "Real-time order processing pipeline" → layout:"flow"
+
 Architecture: ${input.trim()}`;
 
       const resp = await fetch("/api/anthropic", {
@@ -1021,7 +1717,10 @@ Architecture: ${input.trim()}`;
       parsed.groups = (parsed.groups||[]).filter(g=>GT[g.type]);
       const nIds = new Set(parsed.nodes.map(n=>n.id));
       parsed.edges = (parsed.edges||[]).filter(e=>nIds.has(e.from)&&nIds.has(e.to));
-      const r = autoLayout(parsed);
+      // Preserve layout fields from AI response
+      const layout = parsed.layout || 'auto';
+      const layoutHints = parsed.layoutHints || {};
+      const r = await smartLayout({...parsed, layout, layoutHints});
       pushHistory(); setTitle(r.title||"Azure Diagram"); setNodes(r.nodes); setGroups(r.groups); setEdges(r.edges);
       setSel(null); setHasData(true);
       if(isMobile) setDrawerOpen(false);
@@ -1060,12 +1759,14 @@ Architecture: ${input.trim()}`;
       }
     });
     const rebuilt = {
-      title, groups: groups.map(g => ({id:g.id, type:g.type, label:g.label, children:gChildren[g.id], ...(g.collapsed?{collapsed:true}:{}), ...(g.compliance?{compliance:g.compliance}:{})})),
+      title,
+      layout: 'auto', // Use auto layout for re-layout operations
+      groups: groups.map(g => ({id:g.id, type:g.type, label:g.label, children:gChildren[g.id], ...(g.collapsed?{collapsed:true}:{}), ...(g.compliance?{compliance:g.compliance}:{})})),
       nodes: nodes.map(n => ({id:n.id, type:n.type, label:n.label, ...(n.techName?{techName:n.techName}:{}), ...(n.wafPillar?{wafPillar:n.wafPillar}:{})})),
       edges: edges.map(e => ({from:e.from, to:e.to, label:e.label, style:e.style, ...(e.classification?{classification:e.classification}:{})})),
     };
-    // Try ELK layout first, fall back to autoLayout
-    const r = await elkLayout(rebuilt) || autoLayout(rebuilt);
+    // Use smartLayout router (defaults to ELK with autoLayout fallback)
+    const r = await smartLayout(rebuilt);
     setTitle(r.title); setNodes(r.nodes); setGroups(r.groups); setEdges(r.edges);
     setSel(null); setTimeout(() => zoomToFit(r.nodes, r.groups), 100);
     setToast('Layout updated with ELK.js'); setTimeout(() => setToast(null), 2000);
@@ -1604,6 +2305,8 @@ Architecture: ${input.trim()}`;
                   // Use bendPoints if available (same logic as render pass)
                   if (edge.bendPoints && edge.bendPoints.length >= 2 && !isRedirected) {
                     let pts = avoidContainers(edge.bendPoints, groups, edge.from, edge.to);
+                    // Also route around node obstacles
+                    pts = avoidNodes(pts, nodes, edge.from, edge.to, iSzEdge.node / 2 + 8);
                     // Find longest segment for label placement
                     let maxLen = 0, bestMid = { x: pts[0].x, y: pts[0].y }, bestHoriz = true;
                     for (let i = 0; i < pts.length - 1; i++) {
@@ -1723,6 +2426,8 @@ Architecture: ${input.trim()}`;
                   if (edge.bendPoints && edge.bendPoints.length >= 2 && !isRedirected) {
                     // Apply container avoidance post-processing
                     let pts = avoidContainers(edge.bendPoints, groups, edge.from, edge.to);
+                    // Also route around node obstacles
+                    pts = avoidNodes(pts, nodes, edge.from, edge.to, iSzEdge.node / 2 + 8);
 
                     // Filter out redundant/collinear points that cause rendering artifacts
                     const filtered = [pts[0]];

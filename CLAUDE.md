@@ -45,7 +45,12 @@ azure.nwgrm.org → azure-diagram-builder.YOUR_ACCOUNT.workers.dev
 - Group drag cascades to all children (groups + nodes)
 - Node-to-node, node-to-group, group-to-group connections
 - Edge labels with solid/dashed styles and directional arrows
+- **Intelligent layout selection** — AI picks optimal layout (hub-spoke, hierarchical, zones, flow)
 - Flow-based auto-layout (topological sort → left-to-right columns)
+- Hub-spoke layout for VNet peering / central firewall topologies
+- Hierarchical layout for N-tier apps (ingress → app → data)
+- Zones layout for hybrid cloud (on-prem | azure | external)
+- Node obstacle avoidance — edges route around icons
 - Slide-fit targeting 16:9 aspect ratio
 - Re-layout button to clean up after manual edits
 - Zoom-to-fit, pan, scroll zoom
@@ -66,13 +71,19 @@ azure.nwgrm.org → azure-diagram-builder.YOUR_ACCOUNT.workers.dev
 - URL sharing (base64 topology in URL params)
 - Keyboard shortcuts
 - Node parameters / metadata
-- Edge obstacle avoidance
 - Pinch-to-zoom on mobile
 
 ## Data Model
 ```json
 {
   "title": "Diagram Title",
+  "layout": "hub-spoke",
+  "layoutHints": {
+    "hubNode": "n1",
+    "zones": ["on-prem", "azure", "external"],
+    "tiers": ["ingress", "app", "data"],
+    "flowDirection": "left-to-right"
+  },
   "groups": [
     { "id": "g1", "type": "region", "label": "East US", "children": ["g2", "n1"] },
     { "id": "g2", "type": "vnet_grp", "label": "VNet", "children": ["n2", "n3"] }
@@ -84,6 +95,14 @@ azure.nwgrm.org → azure-diagram-builder.YOUR_ACCOUNT.workers.dev
     { "from": "n1", "to": "n2", "label": "HTTPS", "style": "solid" }
   ]
 }
+```
+
+### Layout Types
+- `hub-spoke` — Central hub with spokes radially arranged (VNet peering, firewall topologies)
+- `hierarchical` — Top-to-bottom tiers (N-tier web apps, API flows)
+- `zones` — Left-to-right zones (hybrid cloud: on-prem | azure | external)
+- `flow` — Left-to-right or top-to-bottom pipelines (ETL, event processing)
+- `auto` — Let ELK.js decide (default)
 ```
 
 ### Service Types
