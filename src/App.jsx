@@ -29,6 +29,13 @@ const GTS=[
 ];
 const GT={};GTS.forEach(t=>{GT[t.type]=t;});
 
+// Icon style configurations for node visualization modes
+const ICON_SIZES = {
+  standard: { icon: 28, node: 56, nodeRadius: 12, selOffset: 32, selSize: 64, port: 28, labelOffset: 40, labelFont: 9, techOffset: 51, maxChars: 18 },
+  compact:  { icon: 22, node: 44, nodeRadius: 10, selOffset: 24, selSize: 48, port: 22, labelOffset: 30, labelFont: 8, techOffset: 40, maxChars: 14 },
+  minimal:  { icon: 16, node: 32, nodeRadius: 8,  selOffset: 18, selSize: 36, port: 16, labelOffset: 22, labelFont: 7, techOffset: 30, maxChars: 12 }
+};
+
 const WAF_PILLARS={
   RE:{label:"RE",color:"#3b82f6",name:"Reliability"},
   SE:{label:"SE",color:"#ef4444",name:"Security"},
@@ -776,12 +783,12 @@ function avoidContainers(pts, groups, sourceId, targetId) {
   }
 }
 
-function nodePorts(node) {
+function nodePorts(node, portOffset = 28) {
   return {
-    top:    { x: node.x,      y: node.y - 28 },
-    right:  { x: node.x + 28, y: node.y      },
-    bottom: { x: node.x,      y: node.y + 28 },
-    left:   { x: node.x - 28, y: node.y      },
+    top:    { x: node.x,           y: node.y - portOffset },
+    right:  { x: node.x + portOffset, y: node.y           },
+    bottom: { x: node.x,           y: node.y + portOffset },
+    left:   { x: node.x - portOffset, y: node.y           },
   };
 }
 
@@ -798,9 +805,9 @@ function groupPorts(group) {
   };
 }
 
-function resolveAnchor(id, nodes, groups) {
+function resolveAnchor(id, nodes, groups, portOffset = 28) {
   const nd = nodes.find(n => n.id === id);
-  if (nd) return { cx: nd.x, cy: nd.y, ports: nodePorts(nd) };
+  if (nd) return { cx: nd.x, cy: nd.y, ports: nodePorts(nd, portOffset) };
   const g = groups.find(g => g.id === id);
   if (g) {
     // Use collapsed dimensions (160x40) when group is collapsed
@@ -937,6 +944,8 @@ export default function App(){
   const [showLegend,setShowLegend]=useState(false);
   // Edge label visualization style: 'compact' | 'minimal' | 'legend'
   const [labelStyle,setLabelStyle]=useState("compact");
+  // Icon style for node visualization: 'standard' | 'compact' | 'minimal'
+  const [iconStyle,setIconStyle]=useState("standard");
   // WAF-30/31/33: C4 Model view modes (Context, Container, Component)
   const [viewMode,setViewMode]=useState("container"); // context | container | component
   const [drillInNode,setDrillInNode]=useState(null); // Node being drilled into for Component view
@@ -978,8 +987,11 @@ export default function App(){
     const r = svgRef.current.getBoundingClientRect();
     const vw = r.width, vh = r.height;
     // Find bounding box of all content
+    const iSz = ICON_SIZES[iconStyle];
+    const halfNode = iSz.node / 2;
+    const labelExtra = iSz.labelOffset + 10; // room for label below node
     let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
-    nds.forEach(n => { minX=Math.min(minX,n.x-40);minY=Math.min(minY,n.y-40);maxX=Math.max(maxX,n.x+40);maxY=Math.max(maxY,n.y+60); });
+    nds.forEach(n => { minX=Math.min(minX,n.x-halfNode);minY=Math.min(minY,n.y-halfNode);maxX=Math.max(maxX,n.x+halfNode);maxY=Math.max(maxY,n.y+labelExtra); });
     gps.forEach(g => { minX=Math.min(minX,g.x);minY=Math.min(minY,g.y);maxX=Math.max(maxX,g.x+g.w);maxY=Math.max(maxY,g.y+g.h); });
     if(minX===Infinity) return;
     const cw=maxX-minX+80, ch=maxY-minY+80;
@@ -987,7 +999,7 @@ export default function App(){
     const px=(vw-cw*z)/2-minX*z+40;
     const py=(vh-ch*z)/2-minY*z+40;
     setZoom(z); setPan({x:px,y:py});
-  }, []);
+  }, [iconStyle]);
 
   const [loading,setLoading]=useState(false);
   const [genError,setGenError]=useState(null);
@@ -1129,8 +1141,9 @@ Architecture: ${input.trim()}`;
     const usedEdgeStyles=[...new Set(edges.map(e=>e.style||"solid"))];
     if(usedGroupTypes.length>0||usedEdgeStyles.length>0){
       // Calculate bounding box for positioning legend
+      const iSz=ICON_SIZES[iconStyle];const halfNode=iSz.node/2;const labelExtra=iSz.labelOffset+10;
       let maxX=-Infinity,maxY=-Infinity;
-      nodes.forEach(n=>{maxX=Math.max(maxX,n.x+40);maxY=Math.max(maxY,n.y+60);});
+      nodes.forEach(n=>{maxX=Math.max(maxX,n.x+halfNode);maxY=Math.max(maxY,n.y+labelExtra);});
       groups.forEach(g=>{maxX=Math.max(maxX,g.x+g.w);maxY=Math.max(maxY,g.y+g.h);});
       const legendX=maxX+30,legendY=40;
       const legendWidth=150,rowHeight=18,padding=12;
@@ -1250,8 +1263,9 @@ Architecture: ${input.trim()}`;
 
   const handleExportPng=()=>{
     const svg=mainRef.current?.querySelector("svg");if(!svg)return;
+    const iSz=ICON_SIZES[iconStyle];const halfNode=iSz.node/2;const labelExtra=iSz.labelOffset+10;
     let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
-    nodes.forEach(n=>{minX=Math.min(minX,n.x-40);minY=Math.min(minY,n.y-40);maxX=Math.max(maxX,n.x+40);maxY=Math.max(maxY,n.y+60);});
+    nodes.forEach(n=>{minX=Math.min(minX,n.x-halfNode);minY=Math.min(minY,n.y-halfNode);maxX=Math.max(maxX,n.x+halfNode);maxY=Math.max(maxY,n.y+labelExtra);});
     groups.forEach(g=>{minX=Math.min(minX,g.x);minY=Math.min(minY,g.y);maxX=Math.max(maxX,g.x+g.w);maxY=Math.max(maxY,g.y+g.h);});
     if(minX===Infinity)return;
     const PAD=20,TITLE_H=40,SCALE=2;
@@ -1457,6 +1471,7 @@ Architecture: ${input.trim()}`;
           {hasData&&<button onClick={runValidate} title="Validate CAF names and Azure hierarchy" style={{padding:"5px 10px",background:(nameViolations.size||hierViolations.size)?"rgba(245,158,11,.1)":"transparent",border:`1px solid ${(nameViolations.size||hierViolations.size)?"#f59e0b":T.bdr}`,borderRadius:5,color:(nameViolations.size||hierViolations.size)?"#f59e0b":T.ts,fontSize:10,cursor:"pointer"}}>⚠ Validate</button>}
           {hasData&&<button onClick={()=>setShowLegend(v=>!v)} title="Toggle diagram legend" style={{padding:"5px 10px",background:showLegend?"rgba(59,130,246,.12)":"transparent",border:`1px solid ${showLegend?T.sel:T.bdr}`,borderRadius:5,color:showLegend?T.sel:T.ts,fontSize:10,cursor:"pointer"}}>☰ Legend</button>}
           {hasData&&<select data-testid="label-style-select" value={labelStyle} onChange={e=>setLabelStyle(e.target.value)} title="Edge label visualization style" style={{padding:"5px 8px",background:T.srf,border:`1px solid ${T.bdr}`,borderRadius:5,color:T.ts,fontSize:10,cursor:"pointer"}}><option value="compact">Compact</option><option value="minimal">Minimal</option><option value="legend">Legend</option></select>}
+          {hasData&&<select data-testid="icon-style-select" value={iconStyle} onChange={e=>setIconStyle(e.target.value)} title="Node icon visualization style" style={{padding:"5px 8px",background:T.srf,border:`1px solid ${T.bdr}`,borderRadius:5,color:T.ts,fontSize:10,cursor:"pointer"}}><option value="standard">Standard</option><option value="compact">Compact</option><option value="minimal">Minimal</option></select>}
           {hasData&&<button onClick={handleExport} style={{padding:"5px 10px",background:"transparent",border:`1px solid ${T.bdr}`,borderRadius:5,color:T.ts,fontSize:10,cursor:"pointer"}}>↓ SVG</button>}
           {hasData&&<button onClick={handleExportPng} style={{padding:"5px 10px",background:"transparent",border:`1px solid ${T.bdr}`,borderRadius:5,color:T.ts,fontSize:10,cursor:"pointer"}}>↓ PNG</button>}
           {hasData&&<button onClick={handleSaveJson} title="Save diagram to JSON file" style={{padding:"5px 10px",background:"transparent",border:`1px solid ${T.bdr}`,borderRadius:5,color:T.ts,fontSize:10,cursor:"pointer"}}>💾 Save</button>}
@@ -1503,6 +1518,7 @@ Architecture: ${input.trim()}`;
             <g transform={`translate(${pan.x},${pan.y}) scale(${zoom})`}>
               {/* WAF-31: Context View - System as black box */}
               {viewMode==="context"&&(()=>{
+                const iSzCtx=ICON_SIZES[iconStyle];const halfNodeCtx=iSzCtx.node/2;const labelExtraCtx=iSzCtx.labelOffset+10;
                 const externalNodes=nodes.filter(n=>EXTERNAL_TYPES.has(n.type));
                 const internalNodeIds=new Set(nodes.filter(n=>!EXTERNAL_TYPES.has(n.type)).map(n=>n.id));
                 const internalGroupIds=new Set(groups.map(g=>g.id));
@@ -1510,7 +1526,7 @@ Architecture: ${input.trim()}`;
                 if(groups.length||nodes.filter(n=>!EXTERNAL_TYPES.has(n.type)).length){
                   let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
                   groups.forEach(g=>{minX=Math.min(minX,g.x);minY=Math.min(minY,g.y);maxX=Math.max(maxX,g.x+g.w);maxY=Math.max(maxY,g.y+g.h);});
-                  nodes.filter(n=>!EXTERNAL_TYPES.has(n.type)).forEach(n=>{minX=Math.min(minX,n.x-40);minY=Math.min(minY,n.y-40);maxX=Math.max(maxX,n.x+40);maxY=Math.max(maxY,n.y+60);});
+                  nodes.filter(n=>!EXTERNAL_TYPES.has(n.type)).forEach(n=>{minX=Math.min(minX,n.x-halfNodeCtx);minY=Math.min(minY,n.y-halfNodeCtx);maxX=Math.max(maxX,n.x+halfNodeCtx);maxY=Math.max(maxY,n.y+labelExtraCtx);});
                   if(minX!==Infinity){systemBounds.x=minX-20;systemBounds.y=minY-20;systemBounds.w=maxX-minX+40;systemBounds.h=maxY-minY+40;}
                 }
                 const systemCx=systemBounds.x+systemBounds.w/2,systemCy=systemBounds.y+systemBounds.h/2;
@@ -1552,6 +1568,7 @@ Architecture: ${input.trim()}`;
               {(()=>{
                 // Precompute port assignments + multi-edge offsets
                 const portMap={}, sharedPorts={};
+                const portOffset = ICON_SIZES[iconStyle].port;
                 edges.forEach(edge=>{
                   // Get visible endpoints (may be redirected to collapsed groups)
                   const visibleFrom = getVisibleEndpoint(edge.from);
@@ -1563,7 +1580,7 @@ Architecture: ${input.trim()}`;
                   // Skip if BOTH visible endpoints are still hidden (shouldn't happen but safety check)
                   if (isHiddenByCollapsedAncestor(visibleFrom) || isHiddenByCollapsedAncestor(visibleTo)) return;
 
-                  const sA=resolveAnchor(visibleFrom,nodes,groups), tA=resolveAnchor(visibleTo,nodes,groups);
+                  const sA=resolveAnchor(visibleFrom,nodes,groups,portOffset), tA=resolveAnchor(visibleTo,nodes,groups,portOffset);
                   if(!sA||!tA)return;
                   const {srcPort,tgtPort}=selectPorts(sA,tA);
                   // Store whether edge was redirected for styling
@@ -1590,10 +1607,11 @@ Architecture: ${input.trim()}`;
                 const labelPositions = {}; // edgeId -> {x, y}
 
                 // Also collect node label positions to avoid overlapping with resource names
+                const iSzEdge = ICON_SIZES[iconStyle];
                 const nodeBoxes = nodes.filter(n => !isHiddenByCollapsedAncestor(n.id)).map(nd => {
                   const label = nd.label || '';
                   const labelW = Math.min(label.length * 6, 120);
-                  const labelY = nd.y + 40;
+                  const labelY = nd.y + iSzEdge.labelOffset;
                   return { x: nd.x, y: labelY, w: labelW, h: 14, type: 'node' };
                 });
 
@@ -1879,10 +1897,10 @@ Architecture: ${input.trim()}`;
                   );
                 });
               })()}
-              {nodes.map(nd=>{if(isHiddenByCollapsedAncestor(nd.id))return null;const s=ALL[nd.type];const isExternal=EXTERNAL_TYPES.has(nd.type);if(!s&&!isExternal)return null;if(isExternal){const shapes={user:{d:"M0,-18 a8,8 0 1,1 0,.1 M0,-2 L0,15 M-12,28 L0,15 L12,28 M-12,5 L12,5",fill:"none"},external_system:{d:"M-22,-18 h44 a8,8 0 0,1 0,36 h-44 a8,8 0 0,1 0,-36 Z",fill:"#64748b15"},mobile_user:{d:"M-10,-22 h20 a3,3 0 0,1 3,3 v38 a3,3 0 0,1 -3,3 h-20 a3,3 0 0,1 -3,-3 v-38 a3,3 0 0,1 3,-3 Z M-7,-16 h14 v26 h-14 Z M0,15 a2,2 0 1,1 0,.1",fill:"#64748b15"},iot_device:{d:"M-18,-14 h36 a4,4 0 0,1 4,4 v20 a4,4 0 0,1 -4,4 h-36 a4,4 0 0,1 -4,-4 v-20 a4,4 0 0,1 4,-4 Z M-10,-6 v12 M0,-6 v12 M10,-6 v12 M-14,16 v6 M14,16 v6",fill:"#64748b15"}};const sh=shapes[nd.type]||shapes.user;const isSel=sel?.kind==="node"&&sel.id===nd.id;return(<g key={nd.id} transform={`translate(${nd.x},${nd.y})`} style={{cursor:editMode?(connectFrom?"crosshair":"grab"):"default"}} onMouseDown={e=>onNodeDown(e,nd.id)} onTouchStart={e=>onNodeDown(e,nd.id)} onClick={e=>viewMode==="component"&&openDrillIn(e,nd.id)}>{(isSel||connectFrom===nd.id)&&<circle r={38} fill="none" stroke={connectFrom===nd.id?"#f59e0b":T.sel} strokeWidth="2" opacity=".45" strokeDasharray={connectFrom===nd.id?"4 2":"none"}/>}<path d={sh.d} fill={sh.fill} stroke="#64748b" strokeWidth={2}/><text y={42} textAnchor="middle" fill={T.ts} fontSize={9} fontWeight="500" fontFamily="Segoe UI" style={{cursor:viewMode==="component"?"pointer":"inherit"}} onClick={e=>viewMode==="component"&&openDrillIn(e,nd.id)}>{nd.label}</text></g>);}const isSel=sel?.kind==="node"&&sel.id===nd.id;const isCon=connectFrom===nd.id;
+              {nodes.map(nd=>{if(isHiddenByCollapsedAncestor(nd.id))return null;const s=ALL[nd.type];const isExternal=EXTERNAL_TYPES.has(nd.type);if(!s&&!isExternal)return null;const iSz=ICON_SIZES[iconStyle];if(isExternal){const shapes={user:{d:"M0,-18 a8,8 0 1,1 0,.1 M0,-2 L0,15 M-12,28 L0,15 L12,28 M-12,5 L12,5",fill:"none"},external_system:{d:"M-22,-18 h44 a8,8 0 0,1 0,36 h-44 a8,8 0 0,1 0,-36 Z",fill:"#64748b15"},mobile_user:{d:"M-10,-22 h20 a3,3 0 0,1 3,3 v38 a3,3 0 0,1 -3,3 h-20 a3,3 0 0,1 -3,-3 v-38 a3,3 0 0,1 3,-3 Z M-7,-16 h14 v26 h-14 Z M0,15 a2,2 0 1,1 0,.1",fill:"#64748b15"},iot_device:{d:"M-18,-14 h36 a4,4 0 0,1 4,4 v20 a4,4 0 0,1 -4,4 h-36 a4,4 0 0,1 -4,-4 v-20 a4,4 0 0,1 4,-4 Z M-10,-6 v12 M0,-6 v12 M10,-6 v12 M-14,16 v6 M14,16 v6",fill:"#64748b15"}};const sh=shapes[nd.type]||shapes.user;const isSel=sel?.kind==="node"&&sel.id===nd.id;return(<g key={nd.id} transform={`translate(${nd.x},${nd.y})`} style={{cursor:editMode?(connectFrom?"crosshair":"grab"):"default"}} onMouseDown={e=>onNodeDown(e,nd.id)} onTouchStart={e=>onNodeDown(e,nd.id)} onClick={e=>viewMode==="component"&&openDrillIn(e,nd.id)}>{(isSel||connectFrom===nd.id)&&<circle r={38} fill="none" stroke={connectFrom===nd.id?"#f59e0b":T.sel} strokeWidth="2" opacity=".45" strokeDasharray={connectFrom===nd.id?"4 2":"none"}/>}<path d={sh.d} fill={sh.fill} stroke="#64748b" strokeWidth={2}/><text y={42} textAnchor="middle" fill={T.ts} fontSize={iSz.labelFont} fontWeight="500" fontFamily="Segoe UI" style={{cursor:viewMode==="component"?"pointer":"inherit"}} onClick={e=>viewMode==="component"&&openDrillIn(e,nd.id)}>{nd.label}</text></g>);}const isSel=sel?.kind==="node"&&sel.id===nd.id;const isCon=connectFrom===nd.id;
                 // Multi-line label support: split long labels into 2 lines
                 const label = nd.label || '';
-                const maxChars = 18;
+                const maxChars = iSz.maxChars;
                 let line1 = label, line2 = '';
                 if (label.length > maxChars) {
                   const words = label.split(/[\s-]+/);
@@ -1897,10 +1915,14 @@ Architecture: ${input.trim()}`;
                   if (!line2 && label.length > maxChars) { line1 = label.slice(0, maxChars-1) + '…'; }
                   else if (line2.length > maxChars) { line2 = line2.slice(0, maxChars-1) + '…'; }
                 }
-                const labelY = line2 ? nd.y + 36 : nd.y + 40;
-                const labelFontSize = label.length > 14 ? 8 : 9;
+                const halfNode = iSz.node / 2;
+                const labelY = line2 ? nd.y + halfNode + 8 : nd.y + iSz.labelOffset;
+                const labelFontSize = label.length > 14 ? Math.max(iSz.labelFont - 1, 6) : iSz.labelFont;
+                const halfIcon = iSz.icon / 2;
+                const techY = line2 ? nd.y + halfNode + 8 + iSz.labelFont + 8 : nd.y + iSz.techOffset;
+                const badgeOffset = halfNode - 4;
                 return (
-                <g key={nd.id} onMouseDown={e=>onNodeDown(e,nd.id)} onTouchStart={e=>onNodeDown(e,nd.id)} onClick={e=>viewMode==="component"&&openDrillIn(e,nd.id)} style={{cursor:editMode?(connectFrom?"crosshair":"grab"):"default"}}>{(isSel||isCon)&&<rect x={nd.x-32} y={nd.y-32} width={64} height={64} rx={14} fill="none" stroke={isCon?"#f59e0b":T.sel} strokeWidth="2" opacity=".45" strokeDasharray={isCon?"4 2":"none"}/>}<rect x={nd.x-28} y={nd.y-28} width={56} height={56} rx={12} fill={T.nBg} stroke={isSel?T.sel+"80":T.nSt} strokeWidth={isSel?1.5:1}/><image href={ICONS[nd.type]} x={nd.x-14} y={nd.y-14} width={28} height={28} style={{pointerEvents:"none"}}/><text x={nd.x} y={labelY} textAnchor="middle" fill={T.ts} fontSize={labelFontSize} fontFamily="Segoe UI" fontWeight="500" style={{cursor:viewMode==="component"?"pointer":"inherit"}} onClick={e=>viewMode==="component"&&openDrillIn(e,nd.id)}>{line1}</text>{line2&&<text x={nd.x} y={labelY+10} textAnchor="middle" fill={T.ts} fontSize={labelFontSize} fontFamily="Segoe UI" fontWeight="500" style={{cursor:viewMode==="component"?"pointer":"inherit"}} onClick={e=>viewMode==="component"&&openDrillIn(e,nd.id)}>{line2}</text>}{nd.techName&&<text x={nd.x} y={line2 ? nd.y+56 : nd.y+51} textAnchor="middle" fill="#a5b4fc" fontSize="7" fontFamily="Consolas,monospace" style={{cursor:viewMode==="component"?"pointer":"inherit"}} onClick={e=>viewMode==="component"&&openDrillIn(e,nd.id)}>{nd.techName.length>24?nd.techName.slice(0,23)+"…":nd.techName}</text>}{nd.wafPillar&&WAF_PILLARS[nd.wafPillar]&&<><circle cx={nd.x+24} cy={nd.y-24} r={9} fill={WAF_PILLARS[nd.wafPillar].color} style={{pointerEvents:"none"}}/><text x={nd.x+24} y={nd.y-20} textAnchor="middle" fill="white" fontSize="7" fontFamily="Segoe UI" fontWeight="700" style={{pointerEvents:"none"}}>{nd.wafPillar}</text></>}{(nameViolations.has(nd.id)||hierViolations.has(nd.id))&&<g style={{pointerEvents:"none"}}><title>{nameViolations.has(nd.id)?"Non-CAF name":""}{ nameViolations.has(nd.id)&&hierViolations.has(nd.id)?"; ":""}{hierViolations.has(nd.id)?"Hierarchy violation":""}</title><circle cx={nd.x-24} cy={nd.y-24} r={7} fill="#f59e0b"/><text x={nd.x-24} y={nd.y-20} textAnchor="middle" fill="white" fontSize="9" fontWeight="700" fontFamily="Segoe UI">!</text></g>}</g>
+                <g key={nd.id} onMouseDown={e=>onNodeDown(e,nd.id)} onTouchStart={e=>onNodeDown(e,nd.id)} onClick={e=>viewMode==="component"&&openDrillIn(e,nd.id)} style={{cursor:editMode?(connectFrom?"crosshair":"grab"):"default"}}>{(isSel||isCon)&&<rect x={nd.x-iSz.selOffset} y={nd.y-iSz.selOffset} width={iSz.selSize} height={iSz.selSize} rx={iSz.nodeRadius+2} fill="none" stroke={isCon?"#f59e0b":T.sel} strokeWidth="2" opacity=".45" strokeDasharray={isCon?"4 2":"none"}/>}<rect x={nd.x-halfNode} y={nd.y-halfNode} width={iSz.node} height={iSz.node} rx={iSz.nodeRadius} fill={T.nBg} stroke={isSel?T.sel+"80":T.nSt} strokeWidth={isSel?1.5:1}/><image href={ICONS[nd.type]} x={nd.x-halfIcon} y={nd.y-halfIcon} width={iSz.icon} height={iSz.icon} style={{pointerEvents:"none"}}/><text x={nd.x} y={labelY} textAnchor="middle" fill={T.ts} fontSize={labelFontSize} fontFamily="Segoe UI" fontWeight="500" style={{cursor:viewMode==="component"?"pointer":"inherit"}} onClick={e=>viewMode==="component"&&openDrillIn(e,nd.id)}>{line1}</text>{line2&&<text x={nd.x} y={labelY+iSz.labelFont+2} textAnchor="middle" fill={T.ts} fontSize={labelFontSize} fontFamily="Segoe UI" fontWeight="500" style={{cursor:viewMode==="component"?"pointer":"inherit"}} onClick={e=>viewMode==="component"&&openDrillIn(e,nd.id)}>{line2}</text>}{nd.techName&&<text x={nd.x} y={techY} textAnchor="middle" fill="#a5b4fc" fontSize={Math.max(iSz.labelFont-2,5)} fontFamily="Consolas,monospace" style={{cursor:viewMode==="component"?"pointer":"inherit"}} onClick={e=>viewMode==="component"&&openDrillIn(e,nd.id)}>{nd.techName.length>24?nd.techName.slice(0,23)+"…":nd.techName}</text>}{nd.wafPillar&&WAF_PILLARS[nd.wafPillar]&&<><circle cx={nd.x+badgeOffset} cy={nd.y-badgeOffset} r={Math.max(iSz.icon/3,6)} fill={WAF_PILLARS[nd.wafPillar].color} style={{pointerEvents:"none"}}/><text x={nd.x+badgeOffset} y={nd.y-badgeOffset+3} textAnchor="middle" fill="white" fontSize={Math.max(iSz.labelFont-2,5)} fontFamily="Segoe UI" fontWeight="700" style={{pointerEvents:"none"}}>{nd.wafPillar}</text></>}{(nameViolations.has(nd.id)||hierViolations.has(nd.id))&&<g style={{pointerEvents:"none"}}><title>{nameViolations.has(nd.id)?"Non-CAF name":""}{ nameViolations.has(nd.id)&&hierViolations.has(nd.id)?"; ":""}{hierViolations.has(nd.id)?"Hierarchy violation":""}</title><circle cx={nd.x-badgeOffset} cy={nd.y-badgeOffset} r={Math.max(iSz.icon/4,5)} fill="#f59e0b"/><text x={nd.x-badgeOffset} y={nd.y-badgeOffset+3} textAnchor="middle" fill="white" fontSize={Math.max(iSz.labelFont,7)} fontWeight="700" fontFamily="Segoe UI">!</text></g>}</g>
               );})}</>}
             </g>
             <text x="50%" y="24" textAnchor="middle" fill={T.tf} fontSize="14" fontWeight="600" fontFamily="Segoe UI" letterSpacing=".06em">{title}</text>
