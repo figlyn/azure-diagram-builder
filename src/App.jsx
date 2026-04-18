@@ -548,28 +548,12 @@ async function elkLayout(data) {
 
     (result.children || []).forEach(c => extractPositions(c, 0, 0));
 
-    // Extract edge routing (bend points) from all sections
-    const edgeRouting = {};
-    (result.edges || []).forEach(e => {
-      const points = [];
-      // ELK may return multiple sections for edges crossing hierarchy boundaries
-      (e.sections || []).forEach((section, idx) => {
-        if (idx === 0 && section.startPoint) {
-          points.push(section.startPoint);
-        }
-        if (section.bendPoints) {
-          points.push(...section.bendPoints);
-        }
-        if (section.endPoint) {
-          points.push(section.endPoint);
-        }
-      });
-      if (points.length >= 2) {
-        edgeRouting[e.id] = points;
-      }
-    });
-    // Debug: log edge routing info (uncomment for debugging)
-    // console.log('ELK edge routing:', Object.keys(edgeRouting).length, 'edges with bendPoints');
+    // NOTE: We intentionally skip ELK's edge routing (bendPoints) because:
+    // 1. ELK returns edge coordinates in local container space, not absolute canvas coordinates
+    // 2. For hierarchical layouts, edges crossing container boundaries have misaligned coordinates
+    // 3. Our own smart port selection and orthogonal routing handles this correctly
+    // Instead, we set bendPoints: null for all edges, letting computePath() calculate routes
+    // based on the correctly-transformed absolute node positions.
 
     // Post-process: bring ungrouped nodes closer to grouped content
     // ELK places ungrouped nodes too far right due to layer spacing
@@ -607,31 +591,6 @@ async function elkLayout(data) {
       }
     }
 
-    // Also shift edge bendPoints for edges targeting ungrouped nodes
-    if (ungroupedShift > 0) {
-      Object.keys(edgeRouting).forEach(edgeId => {
-        const edgeIdx = parseInt(edgeId.replace('e', ''));
-        const edge = edgeList[edgeIdx];
-        if (edge && ungroupedNodeIdSet.has(edge.to)) {
-          // Shift all points after the midpoint (target side)
-          const pts = edgeRouting[edgeId];
-          if (pts && pts.length >= 2) {
-            // Shift the last point (endpoint) and any horizontal segments going to it
-            const lastPt = pts[pts.length - 1];
-            lastPt.x -= ungroupedShift;
-            // Also shift second-to-last if it's a horizontal segment to the target
-            if (pts.length >= 3) {
-              const secondLast = pts[pts.length - 2];
-              if (Math.abs(secondLast.y - lastPt.y) < 2) {
-                // Horizontal segment to target - shift it too
-                secondLast.x -= ungroupedShift;
-              }
-            }
-          }
-        }
-      });
-    }
-
     // Compute depth for each group
     const depth = {};
     const setDepth = (gid, d) => {
@@ -667,7 +626,7 @@ async function elkLayout(data) {
       edges: edgeList.map((e, i) => ({
         id: `e${i}`, from: e.from, to: e.to,
         label: e.label || '', style: e.style || 'solid',
-        bendPoints: edgeRouting[`e${i}`] || null,
+        bendPoints: null, // Let computePath() handle routing with correct absolute coordinates
         ...(e.classification ? { classification: e.classification } : {})
       }))
     };
