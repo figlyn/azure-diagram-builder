@@ -1827,6 +1827,7 @@ Architecture: ${input.trim()}`;
       const layout = parsed.layout || 'auto';
       const layoutHints = parsed.layoutHints || {};
       const r = await smartLayout({...parsed, layout, layoutHints});
+      if (!r) throw new Error("Layout failed - no nodes generated");
       pushHistory(); setTitle(r.title||"Azure Diagram"); setNodes(r.nodes); setGroups(r.groups); setEdges(r.edges);
       setSel(null); setHasData(true);
       if(isMobile) setDrawerOpen(false);
@@ -1835,8 +1836,8 @@ Architecture: ${input.trim()}`;
     finally { setLoading(false); }
   };
 
-  const loadDemo=(k)=>{const d=DEMOS[k];if(!d)return;const r=autoLayout(d);pushHistory();setTitle(r.title);setNodes(r.nodes);setGroups(r.groups);setEdges(r.edges);setSel(null);setHasData(true);if(isMobile)setDrawerOpen(false);setTimeout(()=>zoomToFit(r.nodes,r.groups),100);};
-  const loadJson=()=>{try{const si=input.indexOf("{"),ei=input.lastIndexOf("}");if(si===-1)throw new Error("No JSON");const p=JSON.parse(input.slice(si,ei+1));p.nodes=(p.nodes||[]).filter(n=>ALL[n.type] || EXTERNAL_TYPES.has(n.type));p.groups=(p.groups||[]).filter(g=>GT[g.type]);const ids=new Set([...p.nodes.map(n=>n.id),...p.groups.map(g=>g.id)]);p.edges=(p.edges||[]).filter(e=>ids.has(e.from)&&ids.has(e.to));const r=autoLayout(p);pushHistory();setTitle(r.title||"Custom");setNodes(r.nodes);setGroups(r.groups);setEdges(r.edges);setSel(null);setHasData(true);if(isMobile)setDrawerOpen(false);setTimeout(()=>zoomToFit(r.nodes,r.groups),100);}catch(e){alert("Invalid JSON: "+e.message);}};
+  const loadDemo=(k)=>{const d=DEMOS[k];if(!d)return;const r=autoLayout(d);if(!r)return;pushHistory();setTitle(r.title);setNodes(r.nodes);setGroups(r.groups);setEdges(r.edges);setSel(null);setHasData(true);if(isMobile)setDrawerOpen(false);setTimeout(()=>zoomToFit(r.nodes,r.groups),100);};
+  const loadJson=()=>{try{const si=input.indexOf("{"),ei=input.lastIndexOf("}");if(si===-1)throw new Error("No JSON");const p=JSON.parse(input.slice(si,ei+1));p.nodes=(p.nodes||[]).filter(n=>ALL[n.type] || EXTERNAL_TYPES.has(n.type));p.groups=(p.groups||[]).filter(g=>GT[g.type]);const ids=new Set([...p.nodes.map(n=>n.id),...p.groups.map(g=>g.id)]);p.edges=(p.edges||[]).filter(e=>ids.has(e.from)&&ids.has(e.to));const r=autoLayout(p);if(!r)throw new Error("Layout failed");pushHistory();setTitle(r.title||"Custom");setNodes(r.nodes);setGroups(r.groups);setEdges(r.edges);setSel(null);setHasData(true);if(isMobile)setDrawerOpen(false);setTimeout(()=>zoomToFit(r.nodes,r.groups),100);}catch(e){alert("Invalid JSON: "+e.message);}};
   const addNode=useCallback(t=>{const id=`n${nid.current++}`;pushHistory();setNodes(p=>[...p,{id,type:t,label:ALL[t]?.name||t,techName:suggestName(t),x:400+(Math.random()-.5)*200-pan.x/zoom,y:300+(Math.random()-.5)*200-pan.y/zoom}]);setHasData(true);setEditMode(true);},[pan,zoom,pushHistory]);
   const addGroup=useCallback(tpl=>{const id=`g${gid.current++}`;pushHistory();setGroups(p=>[...p,{id,type:tpl.type,label:tpl.name,x:250+(Math.random()-.5)*100-pan.x/zoom,y:180+(Math.random()-.5)*100-pan.y/zoom,w:300,h:220,color:tpl.color,border:tpl.border,dash:tpl.dash}]);setHasData(true);setEditMode(true);},[pan,zoom,pushHistory]);
   // Re-layout: reconstruct children from current geometry, re-run layout with ELK
@@ -1873,6 +1874,7 @@ Architecture: ${input.trim()}`;
     };
     // Use smartLayout router (defaults to ELK with autoLayout fallback)
     const r = await smartLayout(rebuilt);
+    if (!r) { setToast('Layout failed'); setTimeout(() => setToast(null), 2000); return; }
     setTitle(r.title); setNodes(r.nodes); setGroups(r.groups); setEdges(r.edges);
     setSel(null); setTimeout(() => zoomToFit(r.nodes, r.groups), 100);
     setToast('Layout updated with ELK.js'); setTimeout(() => setToast(null), 2000);
@@ -2086,6 +2088,7 @@ Architecture: ${input.trim()}`;
         const ids=new Set([...p.nodes.map(n=>n.id),...p.groups.map(g=>g.id)]);
         p.edges=(p.edges||[]).filter(e=>ids.has(e.from)&&ids.has(e.to));
         const r=autoLayout(p);
+        if(!r)throw new Error("Layout failed");
         pushHistory();
         setTitle(r.title||"Custom");
         setNodes(r.nodes);setGroups(r.groups);setEdges(r.edges);
