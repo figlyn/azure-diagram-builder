@@ -76,6 +76,8 @@ const HIER_NODES={subnet_grp:new Set(["vm","vmss","aks","appservice","functions"
 
 const DEMOS={
   hubspoke:{title:"Contoso Enterprise Network",
+    layout:"hub-spoke",
+    layoutHints:{hubNode:"n3"},
     groups:[
       {id:"g1",type:"onprem",label:"Corporate Data Center",children:["n1"]},
       {id:"g2",type:"region",label:"Azure East US",children:["g3","g4","g5"]},
@@ -109,6 +111,8 @@ const DEMOS={
     ]
   },
   aksbaseline:{title:"NorthwindTraders.com \u2014 Cloud-Native Storefront",
+    layout:"hierarchical",
+    layoutHints:{tiers:["ingress","app","data"]},
     groups:[
       {id:"g1",type:"region",label:"East US",children:["g2","g3","n1"]},
       {id:"g2",type:"vnet_grp",label:"aks-vnet-001 (10.0.0.0/16)",children:["g4","g5"]},
@@ -141,6 +145,8 @@ const DEMOS={
     ]
   },
   eventdriven:{title:"Tailwind Retail \u2014 Real-Time Order Processing",
+    layout:"flow",
+    layoutHints:{flowDirection:"left-to-right"},
     groups:[
       {id:"g1",type:"rg",label:"rg-tailwind-orders-prod",children:["g2","g3","g4"]},
       {id:"g2",type:"custom",label:"Ingestion Layer",children:["n2","n3"]},
@@ -168,6 +174,8 @@ const DEMOS={
     ]
   },
   zerotrust:{title:"Woodgrove Financial \u2014 Zero-Trust Trading",
+    layout:"zones",
+    layoutHints:{zones:["identity","network","security"]},
     groups:[
       {id:"g1",type:"custom",label:"Identity Perimeter",children:["n1","n2"]},
       {id:"g2",type:"region",label:"East US",children:["g3","g4"]},
@@ -194,6 +202,141 @@ const DEMOS={
       {from:"n5",to:"n6",label:"Private Link",style:"dashed"},
       {from:"n3",to:"n7",label:"WAF Logs",style:"dashed"},
       {from:"n7",to:"n8",label:"Security Events",style:"solid"}
+    ]
+  },
+  mlops:{title:"Contoso AI Platform — MLOps Pipeline",
+    layout:"flow",
+    layoutHints:{flowDirection:"left-to-right"},
+    groups:[
+      {id:"g1",type:"region",label:"East US",children:["g2","g3"]},
+      {id:"g2",type:"vnet_grp",label:"ml-vnet-001 (10.0.0.0/16)",children:["g4","g5"]},
+      {id:"g3",type:"rg",label:"rg-mlops-shared",children:["n8","n9","n10"]},
+      {id:"g4",type:"subnet_grp",label:"snet-training (10.0.1.0/24)",children:["n1","n2","n3"]},
+      {id:"g5",type:"subnet_grp",label:"snet-inference (10.0.2.0/24)",children:["n4","n5","n6","n7"]}
+    ],
+    nodes:[
+      {id:"n1",type:"mlworkspace",label:"Model Training Studio",techName:"mlw-training-prod-001",wafPillar:"PE"},
+      {id:"n2",type:"storage",label:"Training Data Lake",techName:"st-mldata-prod-001",wafPillar:"RE"},
+      {id:"n3",type:"vm",label:"GPU Compute Cluster",techName:"vm-gpu-train-001",wafPillar:"PE"},
+      {id:"n4",type:"acr",label:"Model Registry",techName:"cr-models-prod-001",wafPillar:"OE"},
+      {id:"n5",type:"aks",label:"Inference Cluster",techName:"aks-inference-prod-001",wafPillar:"RE"},
+      {id:"n6",type:"cognitive",label:"Cognitive Endpoint",techName:"cog-nlp-prod-001",wafPillar:"PE"},
+      {id:"n7",type:"container",label:"Model Serving Pods",techName:"inference-pods",wafPillar:"PE"},
+      {id:"n8",type:"keyvault",label:"ML Secrets Vault",techName:"kv-ml-prod-001",wafPillar:"SE"},
+      {id:"n9",type:"monitor",label:"ML Operations Hub",techName:"mon-ml-prod-001",wafPillar:"OE"},
+      {id:"n10",type:"appinsights",label:"Model Performance Telemetry",techName:"appi-ml-prod-001",wafPillar:"OE"}
+    ],
+    edges:[
+      {from:"n2",to:"n1",label:"Training Data",style:"solid"},
+      {from:"n3",to:"n1",label:"Compute",style:"solid"},
+      {from:"n1",to:"n4",label:"Publish Model",style:"solid"},
+      {from:"n4",to:"n5",label:"Deploy Image",style:"solid"},
+      {from:"n5",to:"n7",label:"Host",style:"solid"},
+      {from:"n7",to:"n6",label:"AI Calls",style:"solid"},
+      {from:"n1",to:"n8",label:"Secrets Access",style:"dashed"},
+      {from:"n5",to:"n8",label:"Managed Identity",style:"dashed"},
+      {from:"n5",to:"n10",label:"Telemetry",style:"dashed"},
+      {from:"n10",to:"n9",label:"Metrics",style:"dashed"}
+    ]
+  },
+  dataplatform:{title:"Adventure Works — Enterprise Data Platform",
+    layout:"flow",
+    layoutHints:{flowDirection:"left-to-right"},
+    groups:[
+      {id:"g1",type:"rg",label:"rg-dataplatform-prod",children:["g2","g3","g4","g5"]},
+      {id:"g2",type:"custom",label:"Ingestion Layer",children:["n1","n2"]},
+      {id:"g3",type:"custom",label:"Processing Layer",children:["n3","n4"]},
+      {id:"g4",type:"custom",label:"Serving Layer",children:["n5","n6"]},
+      {id:"g5",type:"custom",label:"Observability",children:["n7","n8"]}
+    ],
+    nodes:[
+      {id:"n1",type:"datafactory",label:"Data Ingestion Orchestrator",techName:"adf-ingest-prod-001",wafPillar:"RE"},
+      {id:"n2",type:"eventhub",label:"Streaming Ingestion Hub",techName:"evh-stream-prod-001",wafPillar:"PE"},
+      {id:"n3",type:"synapse",label:"Analytics Workspace",techName:"syn-analytics-prod-001",wafPillar:"PE"},
+      {id:"n4",type:"storage",label:"Enterprise Data Lake",techName:"st-datalake-prod-001",wafPillar:"RE"},
+      {id:"n5",type:"sqldb",label:"Curated Data Warehouse",techName:"sqldb-dwh-prod-001",wafPillar:"RE"},
+      {id:"n6",type:"cosmos",label:"Operational Data Store",techName:"cosmos-ops-prod-001",wafPillar:"PE"},
+      {id:"n7",type:"loganalytics",label:"Pipeline Diagnostics",techName:"log-data-prod-001",wafPillar:"OE"},
+      {id:"n8",type:"monitor",label:"Data Platform Health",techName:"mon-data-prod-001",wafPillar:"OE"}
+    ],
+    edges:[
+      {from:"n1",to:"n4",label:"Batch ETL",style:"solid"},
+      {from:"n2",to:"n4",label:"Stream Ingest",style:"solid"},
+      {from:"n4",to:"n3",label:"Transform",style:"solid"},
+      {from:"n3",to:"n5",label:"Curated Load",style:"solid"},
+      {from:"n3",to:"n6",label:"Hot Data",style:"solid"},
+      {from:"n1",to:"n7",label:"Pipeline Logs",style:"dashed"},
+      {from:"n3",to:"n7",label:"Query Logs",style:"dashed"},
+      {from:"n7",to:"n8",label:"Alerts",style:"dashed"}
+    ]
+  },
+  iotedge:{title:"Fabrikam Smart Factory — IoT Telemetry",
+    layout:"flow",
+    layoutHints:{flowDirection:"left-to-right"},
+    groups:[
+      {id:"g1",type:"onprem",label:"Factory Floor — Edge Zone",children:["n1","n2"]},
+      {id:"g2",type:"region",label:"East US",children:["g3","g4"]},
+      {id:"g3",type:"vnet_grp",label:"iot-vnet-001 (10.0.0.0/16)",children:["g5"]},
+      {id:"g4",type:"rg",label:"rg-iot-platform",children:["n6","n7","n8"]},
+      {id:"g5",type:"subnet_grp",label:"snet-iot-processing (10.0.1.0/24)",children:["n3","n4","n5"]}
+    ],
+    nodes:[
+      {id:"n1",type:"vm",label:"Edge Gateway Device",techName:"edge-gw-factory-001",wafPillar:"RE"},
+      {id:"n2",type:"container",label:"Edge ML Module",techName:"edge-ml-container",wafPillar:"PE"},
+      {id:"n3",type:"eventhub",label:"IoT Telemetry Hub",techName:"evh-iot-prod-001",wafPillar:"RE"},
+      {id:"n4",type:"streamanalytics",label:"Hot Path Analytics",techName:"asa-hotpath-prod-001",wafPillar:"PE"},
+      {id:"n5",type:"functions",label:"Telemetry Processor",techName:"func-iot-prod-001",wafPillar:"PE"},
+      {id:"n6",type:"storage",label:"Cold Storage Archive",techName:"st-coldpath-prod-001",wafPillar:"CO"},
+      {id:"n7",type:"cosmos",label:"Warm Path Store",techName:"cosmos-warmpath-prod-001",wafPillar:"RE"},
+      {id:"n8",type:"signalr",label:"Real-Time Dashboard Hub",techName:"sigr-dashboard-prod-001",wafPillar:"PE"}
+    ],
+    edges:[
+      {from:"n1",to:"n2",label:"Local Inference",style:"solid"},
+      {from:"n1",to:"n3",label:"MQTT/AMQP",style:"solid"},
+      {from:"n3",to:"n4",label:"Stream",style:"solid"},
+      {from:"n3",to:"n5",label:"Trigger",style:"solid"},
+      {from:"n4",to:"n7",label:"Hot Writes",style:"solid"},
+      {from:"n5",to:"n6",label:"Archive",style:"solid"},
+      {from:"n5",to:"n7",label:"Warm Writes",style:"solid"},
+      {from:"n4",to:"n8",label:"Real-Time Push",style:"solid"},
+      {from:"n7",to:"n8",label:"State Updates",style:"dashed"}
+    ]
+  },
+  multiregion:{title:"Litware Corp — Global Disaster Recovery",
+    layout:"zones",
+    layoutHints:{zones:["global","primary","dr"]},
+    groups:[
+      {id:"g1",type:"custom",label:"Global Traffic Management",children:["n1"]},
+      {id:"g2",type:"region",label:"East US — Primary",children:["g4","g6"]},
+      {id:"g3",type:"region",label:"West US — DR",children:["g5","g7"]},
+      {id:"g4",type:"vnet_grp",label:"vnet-east-001 (10.0.0.0/16)",children:["g8"]},
+      {id:"g5",type:"vnet_grp",label:"vnet-west-001 (10.1.0.0/16)",children:["g9"]},
+      {id:"g6",type:"rg",label:"rg-shared-east",children:["n6","n7"]},
+      {id:"g7",type:"rg",label:"rg-shared-west",children:["n10","n11"]},
+      {id:"g8",type:"subnet_grp",label:"snet-app-east (10.0.1.0/24)",children:["n2","n3"]},
+      {id:"g9",type:"subnet_grp",label:"snet-app-west (10.1.1.0/24)",children:["n4","n5"]}
+    ],
+    nodes:[
+      {id:"n1",type:"frontdoor",label:"Global Load Balancer",techName:"afd-global-prod-001",wafPillar:"RE"},
+      {id:"n2",type:"appservice",label:"Primary Web App",techName:"app-east-prod-001",wafPillar:"RE"},
+      {id:"n3",type:"sqldb",label:"Primary Database",techName:"sqldb-east-prod-001",wafPillar:"RE"},
+      {id:"n4",type:"appservice",label:"DR Web App",techName:"app-west-dr-001",wafPillar:"RE"},
+      {id:"n5",type:"sqldb",label:"DR Database Replica",techName:"sqldb-west-dr-001",wafPillar:"RE"},
+      {id:"n6",type:"keyvault",label:"East Secrets Vault",techName:"kv-east-prod-001",wafPillar:"SE"},
+      {id:"n7",type:"monitor",label:"East Operations",techName:"mon-east-prod-001",wafPillar:"OE"},
+      {id:"n10",type:"keyvault",label:"West Secrets Vault",techName:"kv-west-dr-001",wafPillar:"SE"},
+      {id:"n11",type:"monitor",label:"West Operations",techName:"mon-west-dr-001",wafPillar:"OE"}
+    ],
+    edges:[
+      {from:"n1",to:"n2",label:"Primary Route",style:"solid"},
+      {from:"n1",to:"n4",label:"Failover Route",style:"dashed"},
+      {from:"n2",to:"n3",label:"SQL/TLS",style:"solid"},
+      {from:"n4",to:"n5",label:"SQL/TLS",style:"solid"},
+      {from:"n3",to:"n5",label:"Geo-Replication",style:"dashed"},
+      {from:"n2",to:"n6",label:"Secrets Access",style:"dashed"},
+      {from:"n4",to:"n10",label:"Secrets Access",style:"dashed"},
+      {from:"n2",to:"n7",label:"Telemetry",style:"dashed"},
+      {from:"n4",to:"n11",label:"Telemetry",style:"dashed"}
     ]
   },
 };
@@ -1836,7 +1979,7 @@ Architecture: ${input.trim()}`;
     finally { setLoading(false); }
   };
 
-  const loadDemo=(k)=>{const d=DEMOS[k];if(!d)return;const r=autoLayout(d);if(!r)return;pushHistory();setTitle(r.title);setNodes(r.nodes);setGroups(r.groups);setEdges(r.edges);setSel(null);setHasData(true);if(isMobile)setDrawerOpen(false);setTimeout(()=>zoomToFit(r.nodes,r.groups),100);};
+  const loadDemo=async(k)=>{const d=DEMOS[k];if(!d)return;const r=await smartLayout(d);if(!r)return;pushHistory();setTitle(r.title);setNodes(r.nodes);setGroups(r.groups);setEdges(r.edges);setSel(null);setHasData(true);if(isMobile)setDrawerOpen(false);setTimeout(()=>zoomToFit(r.nodes,r.groups),100);};
   const loadJson=()=>{try{const si=input.indexOf("{"),ei=input.lastIndexOf("}");if(si===-1)throw new Error("No JSON");const p=JSON.parse(input.slice(si,ei+1));p.nodes=(p.nodes||[]).filter(n=>ALL[n.type] || EXTERNAL_TYPES.has(n.type));p.groups=(p.groups||[]).filter(g=>GT[g.type]);const ids=new Set([...p.nodes.map(n=>n.id),...p.groups.map(g=>g.id)]);p.edges=(p.edges||[]).filter(e=>ids.has(e.from)&&ids.has(e.to));const r=autoLayout(p);if(!r)throw new Error("Layout failed");pushHistory();setTitle(r.title||"Custom");setNodes(r.nodes);setGroups(r.groups);setEdges(r.edges);setSel(null);setHasData(true);if(isMobile)setDrawerOpen(false);setTimeout(()=>zoomToFit(r.nodes,r.groups),100);}catch(e){alert("Invalid JSON: "+e.message);}};
   const addNode=useCallback(t=>{const id=`n${nid.current++}`;pushHistory();setNodes(p=>[...p,{id,type:t,label:ALL[t]?.name||t,techName:suggestName(t),x:400+(Math.random()-.5)*200-pan.x/zoom,y:300+(Math.random()-.5)*200-pan.y/zoom}]);setHasData(true);setEditMode(true);},[pan,zoom,pushHistory]);
   const addGroup=useCallback(tpl=>{const id=`g${gid.current++}`;pushHistory();setGroups(p=>[...p,{id,type:tpl.type,label:tpl.name,x:250+(Math.random()-.5)*100-pan.x/zoom,y:180+(Math.random()-.5)*100-pan.y/zoom,w:300,h:220,color:tpl.color,border:tpl.border,dash:tpl.dash}]);setHasData(true);setEditMode(true);},[pan,zoom,pushHistory]);
@@ -2266,7 +2409,7 @@ Architecture: ${input.trim()}`;
       <div style={{display:"flex",minHeight:"calc(100vh - 45px)"}}>
         {isMobile&&drawerOpen&&<div onClick={()=>setDrawerOpen(false)} style={{position:"fixed",inset:0,top:45,background:"rgba(0,0,0,.5)",zIndex:40}}/>}
         <aside style={{width:isMobile?"85vw":280,position:isMobile?"fixed":"relative",left:isMobile?(drawerOpen?0:"-100%"):0,top:isMobile?45:0,height:isMobile?"calc(100vh-45px)":"auto",zIndex:isMobile?50:1,transition:"left .3s",borderRight:`1px solid ${T.bdr}`,padding:10,display:"flex",flexDirection:"column",gap:7,overflowY:"auto",flexShrink:0,background:T.srf}}>
-          <div><label style={lbl(T)}>EXAMPLES</label><div style={{display:"flex",gap:3,flexWrap:"wrap"}}>{[["hubspoke","Contoso Network"],["aksbaseline","Northwind Store"],["eventdriven","Tailwind Orders"],["zerotrust","Woodgrove Finance"]].map(([k,l])=> <button key={k} onClick={()=>setActiveEx(k)} style={{padding:"4px 8px",borderRadius:4,border:`1px solid ${activeEx===k?"#0078D4":T.bdr}`,background:activeEx===k?"rgba(0,120,212,.1)":"transparent",color:activeEx===k?"#0078D4":T.ts,fontSize:9,cursor:"pointer"}}>{l}</button>)}</div></div>
+          <div><label style={lbl(T)}>EXAMPLES</label><div style={{display:"flex",gap:3,flexWrap:"wrap"}}>{[["hubspoke","Contoso Network"],["aksbaseline","Northwind Store"],["eventdriven","Tailwind Orders"],["zerotrust","Woodgrove Finance"],["mlops","Contoso AI"],["dataplatform","Adventure Data"],["iotedge","Fabrikam IoT"],["multiregion","Litware DR"]].map(([k,l])=> <button key={k} onClick={()=>setActiveEx(k)} style={{padding:"4px 8px",borderRadius:4,border:`1px solid ${activeEx===k?"#0078D4":T.bdr}`,background:activeEx===k?"rgba(0,120,212,.1)":"transparent",color:activeEx===k?"#0078D4":T.ts,fontSize:9,cursor:"pointer"}}>{l}</button>)}</div></div>
           {activeEx&&<button onClick={()=>loadDemo(activeEx)} style={{padding:9,borderRadius:5,border:"none",background:"linear-gradient(135deg,#0078D4,#5C2D91)",color:"white",fontSize:11,fontWeight:600,cursor:"pointer"}}>▶ Load Demo</button>}
           <div><label style={lbl(T)}>DESCRIBE OR PASTE JSON</label><textarea value={input} onChange={e=>setInput(e.target.value)} placeholder={"Describe your architecture...\nor paste diagram JSON"} style={{width:"100%",minHeight:90,padding:8,borderRadius:4,border:`1px solid ${T.bdr}`,background:T.bg,color:T.text,fontSize:10,fontFamily:"Consolas,monospace",lineHeight:1.5,resize:"vertical",outline:"none",boxSizing:"border-box"}}/>
             <div style={{display:"flex",gap:4,marginTop:4}}>
